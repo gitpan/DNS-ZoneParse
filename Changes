@@ -1,29 +1,36 @@
 Revision history for Perl extension DNS::ZoneParse.
 
-0.01  Wed Mar  7 13:46:49 2001
-      - original version; created by h2xs 1.20
+0.85 - Mon Mar 24 2003
+      - fix filehandle typo in lib/DNS/ZoneParse.pm
+      - update tests to test object ctor for filename
+      - fix parsing for RRs without CLASS
 
-0.10	Mon Mar 12 14:44:00 2001
-      - First version published to CPAN
+0.84 - Sun Mar 2 2003
+      - improved test suite
+      - tidy codebase
+      - turn class inside out (http://perlmonks.org/index.pl?node_id=219131)
+      - rename Dump(), newSerial(), PrintZone() methods
+      - dump() now returns a copy of the data
+      - TXT record parsing improved
 
-0.15	Mon Mar 12 19:00:00 2001
-      - Ability to pass filename or string reference to DNS Zone File
+0.83 - Sat Jan 18 2003
+      - Add patches from anonymous and Kan Sasaki:
+          + parse $TTL
+          + shorten serial number
+          + parse MX records without a name
+          + printZone() tweak
+      - update documentation
+      - move module from <dist>/  to <dist>/lib/DNS
 
-0.20 	Mon Mar 12 22:07:00 2001
-      - Updated Documentation, plus a nice HTML one.
-      - Slighty Tidier methods
+0.82 - Tue Jul 16 2002
+      - Add patches to add support for AAAA records and add TTL to 
+      - zone output. Thanks again to Olivier Poitrey
 
-0.25	Wed Apr 04 01:58:11 2001
-      - Fixed missing "_pre_parse()" method - (oops - it was optimised for Parrot)
-      - Renamed "infile" filehandle to "inZONE" to avoid warnings
-
-0.30	Wed Apr 05 12:58:11 2001
-      - Now works on versions of Perl prior to 5.6
-
-0.35	Mon May 21 13:01:00 2001
-      - Had some great comments and suggestions from users of the module
-      - Fixed misuse of $VERSION, @ISA
-      - Altered a couple of the regular expressions to match better following some bug reports.
+0.81 - Sun Jul 14 2002, 17:00
+      - Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura,
+	    Ivan Kohler and others. 
+      - Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
+            alphanumeric chars in TTL, underscores in zone data.
 
 0.80  - Wed Sep 26 21:00:00 2001
       - Big version jump - lots of changes
@@ -39,30 +46,27 @@ Revision history for Perl extension DNS::ZoneParse.
       - make 'dist' - hope this improves CPAN listing.
       - Added more serious tests for the CPAN-testers
 
-0.81 - Sun Jul 14 2002, 17:00
-      - Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura,
-	    Ivan Kohler and others. 
-      - Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
-            alphanumeric chars in TTL, underscores in zone data.
+0.35	Mon May 21 13:01:00 2001
+      - Had some great comments and suggestions from users of the module
+      - Fixed misuse of $VERSION, @ISA
+      - Altered a couple of the regular expressions to match better following some bug reports.
 
-0.82 - Tue Jul 16 2002
-      - Add patches to add support for AAAA records and add TTL to 
-      - zone output. Thanks again to Olivier Poitrey
+0.30	Wed Apr 05 12:58:11 2001
+      - Now works on versions of Perl prior to 5.6
 
-0.83 - Sat Jan 18 2003
-      - Add patches from anonymous and Kan Sasaki:
-          + parse $TTL
-          + shorten serial number
-          + parse MX records without a name
-          + printZone() tweak
-      - update documentation
-      - move module from <dist>/  to <dist>/lib/DNS
+0.25	Wed Apr 04 01:58:11 2001
+      - Fixed missing "_pre_parse()" method
+      - Renamed "infile" filehandle to "inZONE" to avoid warnings
 
-0.84 - Sun Mar 2 2003
-      - improved test suite
-      - tidy codebase
-      - turn class inside out (http://perlmonks.org/index.pl?node_id=219131)
-      - rename Dump(), newSerial(), PrintZone() methods
-      - dump() now returns a copy of the data
-      - TXT record parsing improved
+0.20 	Mon Mar 12 22:07:00 2001
+      - Updated Documentation, plus a nice HTML one.
+      - Slighty Tidier methods
 
+0.15	Mon Mar 12 19:00:00 2001
+      - Ability to pass filename or string reference to DNS Zone File
+
+0.10	Mon Mar 12 14:44:00 2001
+      - First version published to CPAN
+
+0.01  Wed Mar  7 13:46:49 2001
+      - original version; created by h2xs 1.20

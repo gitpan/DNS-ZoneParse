@@ -1,0 +1,24 @@
+;  Database file dns-zoneparse-test.net.dns for dns-zoneparse-test.net zone.
+;      Zone version:  2000100501
+$TTL 1H
+@                       3600	IN	SOA	ns0.dns-zoneparse-test.net.	support.dns-zoneparse-test.net.	(
+                        2000100501   ; serial number
+                        10800       ; refresh
+                        3600        ; retry
+                        691200      ; expire
+                        86400     ) ; minimum TTL
+
+@                       IN	NS	ns0.dns-zoneparse-test.net.
+@                       IN	NS	ns1.dns-zoneparse-test.net.
+
+@                       IN	A	127.0.0.1
+@                       IN	MX	10	mail
+ftp                     IN	CNAME	www
+localhost               IN	A	127.0.0.1
+mail                    IN	A	127.0.0.1
+www                     IN	A	127.0.0.1
+                        in      a       10.0.0.2
+                        IN      A       10.0.0.3
+                                A       10.0.0.4
+foo                     IN      A       10.0.0.5
+soup                    IN      TXT     "This is a text message"

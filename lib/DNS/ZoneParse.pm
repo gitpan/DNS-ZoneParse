@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.84
-# CVS: $Id: ZoneParse.pm,v 1.10 2003/03/02 21:43:47 simonflack Exp $
+# Version 0.85
+# CVS: $Id: ZoneParse.pm,v 1.12 2003/03/24 22:43:19 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.84';
+$VERSION = '0.85';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -157,9 +157,9 @@ sub _load_file {
     if(ref($zonefile) eq "SCALAR") {
         $zone_contents = $$zonefile;
     } else {
-        local *inZone;
+        local *inZONE;
         if (open(inZONE, "$zonefile")) {
-            $zone_contents = do {local $/; <inZone>};
+            $zone_contents = do {local $/; <inZONE>};
             close(inZONE);
         } else {
             croak qq[DNS::ZoneParse Could not open input file: "$zonefile":$!]
@@ -182,16 +182,21 @@ sub _parse {
     my $rr_class   = qr/in|hs|ch/i;
     my $rr_types   = qr/ns|a|cname/i;
     my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
-    my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)\s*/; 
+    my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)?\s*/; 
 
     foreach (@$records) {
         if (/^($valid_name)? \s* $ttl_cls ($rr_types) \s+ ($valid_name)/ix) {
              # host ttl class (ns/a/cname) dest 
-             my $type = uc $4;
-             my $dns_thing = $type eq 'NS' ? $dns_ns{$self}
-                 : $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
+             my ($name, $ttl, $class, $type, $host) = ($1, $2, $3, $4, $5);
+             if (!$class && defined $name && $name =~ /$rr_class/) {
+                 $class = uc $name;
+                 undef $name;
+             }
+             my $dns_thing = uc $type eq 'NS' ? $dns_ns{$self}
+                 : uc $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
              push @$dns_thing,
-                 _massage({name => $1, class=> $3, host => $5, ttl => $2})
+                 _massage({name => $name, class=> $class,
+                           host => $host, ttl => $ttl})
         }
         elsif (/($valid_name)? \s* $ttl_cls MX \s+ (\d+) \s+ ($valid_name)/ix)
         {
