@@ -3,8 +3,8 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'		=> 'DNS::ZoneParse',
-    'VERSION_FROM'	=> 'ZoneParse.pm', # finds $VERSION
+    'VERSION_FROM'	=> 'lib/DNS/ZoneParse.pm', # finds $VERSION
     'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
-    'ABSTRACT_FROM' => 'ZoneParse.pm',
+    'ABSTRACT_FROM' => 'lib/DNS/ZoneParse.pm',
     'AUTHOR' => 'Simon Flack (perl@simonflack.com)',
 );

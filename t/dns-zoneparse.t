@@ -17,6 +17,7 @@ if ($@)
 my $zone_data = <<END_ZONE;
 ;  Database file dns-zoneparse-test.net.dns for dns-zoneparse-test.net zone.
 ;      Zone version:  2000100501
+\$TTL 1H
 @                       3600	IN	SOA	ns0.dns-zoneparse-test.net.	support.dns-zoneparse-test.net.	(
                         2000100501   ; serial number
                         10800       ; refresh

@@ -28,25 +28,34 @@ Revision history for Perl extension DNS::ZoneParse.
 	  - Altered a couple of the regular expressions to match better following some bug reports.
 
 0.80  - Wed Sep 26 21:00:00 2001
-        Big version jump - lots of changes
-        Removed Prepare method - now call new() with the filename\string reference
-        Updated newSerial() to give date based serial numbers by default
-        Fixed missing bracket in SOA of PrintZone() (Thanks to Brian Pellin)
-        Added more warning messages
-        More OO approach - try and hide the internals because they will probably change
-        Added Autoloaded accessors a(), cname(), mx(), ns(), ptr(), soa() etc.
-        Added a Dump() method to return a Hash of the records (better than using internals directly)
-        Updated documentation and examples
-        Added standard perl license
-        make 'dist' - hope this improves CPAN listing.
-	 	Added more serious tests for the CPAN-testers
+      - Big version jump - lots of changes
+      - Removed Prepare method - now call new() with the filename\string reference
+      - Updated newSerial() to give date based serial numbers by default
+      - Fixed missing bracket in SOA of PrintZone() (Thanks to Brian Pellin)
+      - Added more warning messages
+      - More OO approach - try and hide the internals because they will probably change
+      - Added Autoloaded accessors a(), cname(), mx(), ns(), ptr(), soa() etc.
+      - Added a Dump() method to return a Hash of the records (better than using internals directly)
+      - Updated documentation and examples
+      - Added standard perl license
+      - make 'dist' - hope this improves CPAN listing.
+	  - Added more serious tests for the CPAN-testers
 
 0.81 - Sun Jul 14 2002, 17:00
-		Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura, Ivan 
-                            Kohler and others. 
-		Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
-			alphanumeric chars in TTL, underscores in zone data.
+	  - Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura,
+	    Ivan Kohler and others. 
+	  - Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
+	    alphanumeric chars in TTL, underscores in zone data.
 
 0.82 - Tue Jul 16 2002
-		Add patches to add support for AAAA records and add TTL to 
-		zone output. Thanks again to Olivier Poitrey
+	  - Add patches to add support for AAAA records and add TTL to 
+	  - zone output. Thanks again to Olivier Poitrey
+
+0.83 - Sat Jan 18 2003
+	  - Add patches from anonymous and Kan Sasaki:
+	     + parse $TTL
+	     + shorten serial number
+	     + parse MX records without a name
+	     + printZone() tweak
+	  - update documentation
+	  - move module from <dist>/  to <dist>/lib/DNS

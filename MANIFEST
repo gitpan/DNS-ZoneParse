@@ -2,5 +2,5 @@ Changes
 Makefile.PL
 MANIFEST
 t/dns-zoneparse.t
-ZoneParse.pm
+lib/DNS/ZoneParse.pm
 README

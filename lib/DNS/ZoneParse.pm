@@ -1,14 +1,14 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.8
-# CVS: $Id: ZoneParse.pm,v 1.4 2002/07/16 10:51:56 simonflack Exp $
+# Version 0.83
+# CVS: $Id: ZoneParse.pm,v 1.2 2003/01/18 00:24:26 simonflack Exp $
 package DNS::ZoneParse;
 
 use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.82';
+$VERSION = '0.83';
 
 sub new {
     my $class = shift;
@@ -62,8 +62,8 @@ sub newSerial {
 	if ($incriment > 0) { 
 		$self->{_Zone}->{SOA}->{serial} += $incriment;
 	} else {
-		my ($hour, $day,$mon,$year) = ( localtime() )[2 .. 5];
-		my $newserial = sprintf("%d%02d%02d%02d01", $year + 1900, $mon+1, $day, $hour);
+		my ($day,$mon,$year) = ( localtime() )[3 .. 5];
+		my $newserial = sprintf("%d%02d%02d01", $year + 1900, $mon+1, $day);
 		
 		for (1..10)
 		{
@@ -109,16 +109,20 @@ ZONEHEADER
 		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	NS	$rr->{host}\n";
 	}
 
+	$temp_zone_file .= "\n\;\n\; Zone MX Records\n\;\n\n";
+	foreach my $rr (@{$self->{_Zone}->{MX}}) {
+		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	MX	$rr->{priority}  $rr->{host}\n";
+	}
+
+
+
+
 	$temp_zone_file .= "\n\;\n\; Zone Records\n\;\n\n";
 
 	foreach my $class (@quick_classes) {
 		foreach my $rr (@{$self->{_Zone}->{$class}}) {
 			$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	$class	$rr->{host}\n";
 		}
-	}
-
-	foreach my $rr (@{$self->{_Zone}->{MX}}) {
-		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	MX	$rr->{priority}  $rr->{host}\n";
 	}
 
 	$self->{ZoneFile}	 = $temp_zone_file;
@@ -159,17 +163,17 @@ sub load_file {
 			croak "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
 		}
 	}
-	if ($self->_parse()) { return 1; }
+	if ($self->_parse( $zonefile )) { return 1; }
 }
 
 
 sub _parse {
-	my $self=shift;
-    $self->_initialize();
+	my ($self, $zonefile) = @_;
+	$self->_initialize();
     
 	my $chars = qr/[a-z\-\.0-9]+/i;
 	$self->{ZoneFile} =~ /Database file ($chars)( dns)? for ($chars) zone/si;
-	$self->{Identity} = { ZoneFile => $1, Origin => $3};
+	$self->{Identity} = { ZoneFile => $1||$zonefile, Origin => $3||'XXX'};
 
 	$self->{RRs} = [];
 	$self->_clean_records();
@@ -183,27 +187,31 @@ sub _parse {
 		if ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?($rr_types)\s+($valid_name)/i)
 		{
 			my $class = uc $4;
-			push (@{$self->{_Zone}->{$class}}, {name => $1.'', class=> $3.'', host => $5.'',
-							   ttl => $2.''});
+			push (@{$self->{_Zone}->{$class}}, {name => $1||'', class=> $3||'', host => $5||'',
+							   ttl => $2||''});
 		}
-		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?mx\s(\d+)\s($valid_name)/i) 
+		elsif ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?mx\s(\d+)\s($valid_name)/i) 
 		{
-			push (@{$self->{_Zone}->{MX}}, {name => $1.'', priority => $4.'', host => $5.'', 
-							ttl => $2.'', class => $3});
+			push (@{$self->{_Zone}->{MX}}, {name => $1||'', priority => $4||'', host => $5||'', 
+							ttl => $2||'', class => $3});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?SOA\s+($valid_name)\s+($valid_name)\s*?\(?\s*?($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s*\)?/i) {
-			$self->{_Zone}->{SOA} = {origin => $1.'', ttl => $2.'', primary => $4.'', 
-						email =>$5.'', serial => $6.'', refresh=> $7.'', 
-						retry=> $8.'', expire=> $9.'', minimumTTL => $10.''};
+			my $ttl = $self->{_Zone}->{SOA}->{ttl}||$2||'';
+			$self->{_Zone}->{SOA} = {origin => $1||'', ttl => $ttl, primary => $4||'', 
+						email =>$5||'', serial => $6||'', refresh=> $7||'', 
+						retry=> $8||'', expire=> $9||'', minimumTTL => $10||''};
 		}
 		elsif ($RR =~ /([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i) {
-			push (@{$self->{_Zone}->{PTR}}, {name => $1.'', class => $3.'', ttl => $2.'', 
-							host => $4.''});
+			push (@{$self->{_Zone}->{PTR}}, {name => $1||'', class => $3||'', ttl => $2||'', 
+							host => $4||''});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?TXT\s+\"([^\"]*)\"/i) {
-			push (@{$self->{_Zone}->{TXT}}, {name => $1.'', ttl => $2.'', class => $3.'', 
-							text=> $4.''});
+			push (@{$self->{_Zone}->{TXT}}, {name => $1||'', ttl => $2||'', class => $3||'', 
+							text=> $4||''});
 		}
+		elsif ($RR =~ /\$TTL\s+($rr_ttl)/i) {
+			$self->{_Zone}->{SOA}->{ttl} = $1;
+        }
 	}
 	# comment the next two lines for debugging.
 	undef $self->{ZoneFile};
@@ -339,7 +347,7 @@ number.
 Examples:
 
     $dnsfile->newSerial();    # generates a new serial number based on date:
-                              # YYYYMMDDHH## format, incriments current serial
+                              # YYYYMMDD## format, incriments current serial
                               # by 1 if the new serial is still smaller than the current.
     $dnsfile->newSerial(50);  # adds 50 to the original serial number
 
@@ -399,22 +407,21 @@ This script will convert a DNS Zonefile to an XML file using XML::Simple.
 
 =head1 CHANGES
 
-Lots, I have hidden away the internals more. Version 0.35 and below were
-way too open and would only lead to problems.
-
-I've removed the Parse() and Prepare() methods. There was no point
-in calling extra methods, if you just pass the filename\zone data to
-the new construct.
+see F<Changes>
 
 =head1 TODO
 
-Rewrite the parsing methods to use Parse::RecDescent. This is necessary to make
-certain complex DNS structures parseable. I was originally going to use
-Parse::RecDescent, but I didn't :(
+=over 4
 
-I might make the records objects themselves, e.g. each MX record could be a
-DNS::ZoneParse::MX object with it's own methods\properties etc. How does that
-sound?
+=item Rewrite parser - Parse::RecDescent maybe?
+
+=item User-supplied callbacks on record parse
+
+=item cleaner API and code
+
+=item add more tests
+
+=back
 
 =head1 EXPORT
 
