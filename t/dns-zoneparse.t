@@ -1,5 +1,5 @@
 use strict;
-$^W++;
+BEGIN {$^W++};
 use Test::More tests => 19;
 use File::Spec::Functions ':ALL';
 
@@ -18,7 +18,7 @@ my $str_zonefile = DNS::ZoneParse->new(\$zone_data);
 ok($str_zonefile, 'new obj from string');
 test_zone($str_zonefile);
 
-my $str_zonefile = DNS::ZoneParse->new($filename);
+$str_zonefile = DNS::ZoneParse->new($filename);
 ok($str_zonefile, 'new obj from filename');
 test_zone($str_zonefile);
 

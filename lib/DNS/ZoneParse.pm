@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.88
-# CVS: $Id: ZoneParse.pm,v 1.15 2003/04/27 19:29:19 simonflack Exp $
+# Version 0.89
+# CVS: $Id: ZoneParse.pm,v 1.16 2003/04/29 00:20:07 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.88';
+$VERSION = '0.89';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -186,8 +186,12 @@ sub _parse {
 
     _massage();    # reset last_name
     foreach (@$records) {
-        if (/^($valid_name)? \s* $ttl_cls ($rr_types) \s+ ($valid_name)/ix) {
-             # host ttl class (ns/a/cname) dest 
+        if (/^($valid_name)? \s*          # host
+              (?:($rr_ttl)\s+)?           # ttl
+              (?:\b($rr_class)\s+)?\s*    # class
+              ($rr_types) \s+             # record type
+              ($valid_name)               # record data
+             /ix) {
              my ($name, $ttl, $class, $type, $host) = ($1, $2, $3, $4, $5);
              if (!$class && defined $name && $name =~ /^$rr_class$/) {
                  $class = uc $name;

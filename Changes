@@ -1,5 +1,8 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.89 - Sat May 3 2003
+      - small fix for perl 5.005 
+
 0.88 - Wed Apr 27 2003
       -  fix bug #2440 - parsing ambiguous records improved
 
