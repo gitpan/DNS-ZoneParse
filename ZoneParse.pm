@@ -1,24 +1,27 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
 # Version 0.8
-# CVS: $Id: ZoneParse.pm,v 1.5 2001-05-21 13:00:51+01 simon Exp simon $
+# CVS: $Id: ZoneParse.pm,v 1.3 2002/07/14 16:43:55 simonflack Exp $
 package DNS::ZoneParse;
 
 use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.8';
+$VERSION = '0.81';
 
 sub new {
     my $class = shift;
-    
-    croak "No filename or string specified" unless @_;
-    croak "Too many arguments" if @_ > 1;
-    
+
     my $self = {};
     bless $self, $class;
-    $self->load_file(@_);
+
+	if (@_) {
+	  $self->load_file(@_);
+	} else {
+	  $self->_initialize();
+	}
+
     return $self;
 }
 
@@ -80,7 +83,7 @@ sub newSerial {
 
 sub PrintZone {
 	my $self = shift;
-	my @quick_classes = qw(A CNAME);	
+	my @quick_classes = qw(A CNAME PTR);	
 	my $temp_zone_file = "";
 	$temp_zone_file .= <<ZONEHEADER;
 ;
@@ -169,10 +172,10 @@ sub _parse {
 
 	$self->{RRs} = [];
 	$self->_clean_records();
-	my $valid_name = qr/[\@a-z\-\.0-9\*]+/i;
+	my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
 	my $rr_class = qr/in|hs|ch/i;
 	my $rr_types = qr/ns|a|cname/i;
-	my $rr_ttl = qr/\d+/;
+	my $rr_ttl = qr/(?:\d+[wdhms]?)+/i;
 		
 	foreach my $RR (@{$self->{RRs}}) {
 		
@@ -193,7 +196,7 @@ sub _parse {
 						retry=> $8.'', expire=> $9.'', minimumTTL => $10.''};
 		}
 		elsif ($RR =~ /([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i) {
-			push (@{$self->{_Zone}->{PTR}}, {name => $1.'', class => $2.'', ttl => $3.'', 
+			push (@{$self->{_Zone}->{PTR}}, {name => $1.'', class => $3.'', ttl => $2.'', 
 							host => $4.''});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?TXT\s+\"([^\"]*)\"/i) {

@@ -39,4 +39,9 @@ Revision history for Perl extension DNS::ZoneParse.
         Updated documentation and examples
         Added standard perl license
         make 'dist' - hope this improves CPAN listing.
-        Added more serious tests for the CPAN-testers
+	 	Added more serious tests for the CPAN-testers
+
+0.81 - Sun Jul 14 2002, 17:00
+		Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura, Ivan Kohlerand others. 
+		Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
+			alphanumeric chars in TTL, underscores in zone data.
