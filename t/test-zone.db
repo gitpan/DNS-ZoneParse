@@ -23,4 +23,4 @@ www                     IN	A	127.0.0.1
 foo                     IN      A       10.0.0.5
 mini                            A       10.0.0.6
 soup                    IN      TXT     "This is a text message"
-
+txta                            TXT     "This is another text message"

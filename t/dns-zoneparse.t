@@ -122,7 +122,14 @@ sub test_zone {
             'ttl' => '',
             'name' => 'soup',
             'class' => 'IN'
+          },
+          {
+            'text' => 'This is another text message',
+            'ttl' => '',
+            'name' => 'txta',
+            'class' => ''
           }
+
         ], 'TXT records parsed OK');
 }
 

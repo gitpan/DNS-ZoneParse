@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.87
-# CVS: $Id: ZoneParse.pm,v 1.14 2003/03/26 12:31:46 simonflack Exp $
+# Version 0.88
+# CVS: $Id: ZoneParse.pm,v 1.15 2003/04/27 19:29:19 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.87';
+$VERSION = '0.88';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -179,8 +179,8 @@ sub _parse {
 
     my $records    = $self->_clean_records($contents);
     my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
-    my $rr_class   = qr/in|hs|ch/i;
-    my $rr_types   = qr/ns|a|cname/i;
+    my $rr_class   = qr/\b(?:in|hs|ch)\b/i;
+    my $rr_types   = qr/\b(?:ns|a|cname)\b/i;
     my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
     my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)?\s*/; 
 
@@ -453,8 +453,7 @@ I can squash more bugs with your help. Please let me know if you spot something
 that doesn't work as expected.
 
 You can report bugs via the CPAN RT:
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=DNS-ZoneParse> or send an email to
-C<bug-DNS-ZoneParse@rt.cpan.org>
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=DNS-ZoneParse>
 
 If possible, please provide a diff against F<t/dns-zoneparse.t> and
 F<t/test-zone.db> that demonstrates the bug(s).
