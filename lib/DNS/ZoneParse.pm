@@ -1,103 +1,104 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.83
-# CVS: $Id: ZoneParse.pm,v 1.2 2003/01/18 00:24:26 simonflack Exp $
+# Version 0.84
+# CVS: $Id: ZoneParse.pm,v 1.10 2003/03/02 21:43:47 simonflack Exp $
 package DNS::ZoneParse;
 
+use 5.005;
+use Storable 'dclone';
+use POSIX 'strftime';
 use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.83';
+$VERSION = '0.84';
+my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
+    %dns_txt, %dns_ptr, %dns_a4);
+
 
 sub new {
     my $class = shift;
+    my $self = bless [], $class;
 
-    my $self = {};
-    bless $self, $class;
-
-	if (@_) {
-	  $self->load_file(@_);
-	} else {
-	  $self->_initialize();
-	}
-
+    $self->_initialize();
+    $self->_load_file(@_) if @_;
     return $self;
 }
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Accessor Methods
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+sub DESTROY {
+    my $self = shift;
+    delete $dns_soa   {$self};    delete $dns_ns    {$self};
+    delete $dns_a     {$self};    delete $dns_cname {$self};
+    delete $dns_mx    {$self};    delete $dns_txt   {$self};
+    delete $dns_ptr   {$self};    delete $dns_a4    {$self};
+}
 
-sub DESTROY {}
+sub AUTOLOAD {
+    my $self = shift;
+    (my $method = $DNS::ZoneParse::AUTOLOAD) =~ s/.*:://;
 
-sub AUTOLOAD
-{
-	my $self = shift;
-	(my $method = $DNS::ZoneParse::AUTOLOAD) =~ s/.*:://;
-	
-	my @accessors = map { lc } keys ( %{$self->{_Zone}} );
-	croak "Invalid method called: $method" 
-			unless grep { $_ eq $method } @accessors, qw(origin zonefile);
-	
-	return $self->{Identity}->{ZoneFile} if $method eq "zonefile";
-	return $self->{Identity}->{Origin} if $method eq "origin";
-	
-	return $self->{_Zone}->{uc $method};
+    my $rv = $method eq 'soa'      ? $dns_soa   {$self}
+           : $method eq 'ns'       ? $dns_ns    {$self}
+           : $method eq 'a'        ? $dns_a     {$self}
+           : $method eq 'cname'    ? $dns_cname {$self}
+           : $method eq 'mx'       ? $dns_mx    {$self}
+           : $method eq 'txt'      ? $dns_txt   {$self}
+           : $method eq 'ptr'      ? $dns_ptr   {$self}
+           : $method eq 'aaaa'     ? $dns_a4    {$self}
+           : $method eq 'zonefile' ? $dns_id    {$self}->{ZoneFile}
+           : $method eq 'origin'   ? $dns_id    {$self}->{Origin}
+           : undef;
+
+    croak "Invalid method called: $method" unless defined $rv;
+    return $rv;
 }
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Public OO Methods
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-sub Dump
-{
-	# returns a HOH for use with XML modules, etc
-	return $_[0]->{_Zone};
+sub dump {
+    # returns a HOH for use with XML modules, etc
+    my $self = shift;
+    return dclone({
+                   SOA   => $dns_soa   {$self}, AAAA  => $dns_a4  {$self},
+                   A     => $dns_a     {$self}, NS    => $dns_ns  {$self},
+                   CNAME => $dns_cname {$self}, MX    => $dns_mx  {$self},
+                   PTR   => $dns_ptr   {$self}, TXT   => $dns_txt {$self},
+                  });
 }
 
-sub newSerial {
-	my $self = shift;
-	my $incriment = shift || 0;
-	if ($incriment > 0) { 
-		$self->{_Zone}->{SOA}->{serial} += $incriment;
-	} else {
-		my ($day,$mon,$year) = ( localtime() )[3 .. 5];
-		my $newserial = sprintf("%d%02d%02d01", $year + 1900, $mon+1, $day);
-		
-		for (1..10)
-		{
-			if ($newserial > $self->{_Zone}->{SOA}->{serial})
-			{
-				$self->{_Zone}->{SOA}->{serial} = $newserial;
-				return 1;
-			} else {
-				$newserial++;
-			}
-		}
-
-		$self->{_Zone}->{SOA}->{serial}++;
-	}
-	return 1;
+sub new_serial {
+    my $self = shift;
+    my $incriment = shift || 0;
+    my $soa = $dns_soa{$self};
+    if ($incriment > 0) { 
+        $soa->{serial} += $incriment;
+    } else {
+        my $newserial = strftime("%Y%m%d%H", localtime(time));
+        $soa->{serial} = ($newserial > $soa->{serial}) ? $newserial
+            : $soa->{serial} + 1;
+    }
+    return $soa->{serial};
 }
 
-sub PrintZone {
-	my $self = shift;
-	my @quick_classes = qw(A AAAA CNAME PTR);	
-	my $temp_zone_file = "";
-	$temp_zone_file .= <<ZONEHEADER;
+sub output {
+    my $self = shift;
+    my @quick_classes = qw(A AAAA CNAME PTR);
+    my $output = "";
+    $output .= <<ZONEHEADER;
 ;
-;  Database file $self->{Identity}->{ZoneFile} for $self->{Identity}->{Origin} zone.
-;	Zone version: $self->{_Zone}->{SOA}->{serial}
+;  Database file $dns_id{$self}->{ZoneFile} for $dns_id{$self}->{Origin} zone.
+;	Zone version: $dns_soa{$self}->{serial}
 ; 
 
-\$TTL $self->{_Zone}->{SOA}->{ttl}
-$self->{_Zone}->{SOA}->{origin}		$self->{_Zone}->{SOA}->{ttl}	IN  SOA  $self->{_Zone}->{SOA}->{primary} $self->{_Zone}->{SOA}->{email} (
-				$self->{_Zone}->{SOA}->{serial}	; serial number
-				$self->{_Zone}->{SOA}->{refresh}	; refresh
-				$self->{_Zone}->{SOA}->{retry}	; retry
-				$self->{_Zone}->{SOA}->{expire}	; expire
-				$self->{_Zone}->{SOA}->{minimumTTL}	; minimum TTL
+\$TTL $dns_soa{$self}->{ttl}
+$dns_soa{$self}->{origin}		$dns_soa{$self}->{ttl}	IN  SOA  $dns_soa{$self}->{primary} $dns_soa{$self}->{email} (
+				$dns_soa{$self}->{serial}	; serial number
+				$dns_soa{$self}->{refresh}	; refresh
+				$dns_soa{$self}->{retry}	; retry
+				$dns_soa{$self}->{expire}	; expire
+				$dns_soa{$self}->{minimumTTL}	; minimum TTL
 				)
 ;
 ; Zone NS Records
@@ -105,28 +106,33 @@ $self->{_Zone}->{SOA}->{origin}		$self->{_Zone}->{SOA}->{ttl}	IN  SOA  $self->{_
 
 ZONEHEADER
 
-	foreach my $rr (@{$self->{_Zone}->{NS}}) {
-		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	NS	$rr->{host}\n";
-	}
+    foreach (@{$dns_ns{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	NS	$_->{host}\n";
+    }
 
-	$temp_zone_file .= "\n\;\n\; Zone MX Records\n\;\n\n";
-	foreach my $rr (@{$self->{_Zone}->{MX}}) {
-		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	MX	$rr->{priority}  $rr->{host}\n";
-	}
+    $output .= "\n\;\n\; Zone MX Records\n\;\n\n";
+    foreach (@{$dns_mx{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	MX	$_->{priority} "
+                ." $_->{host}\n";
+    }
 
-
-
-
-	$temp_zone_file .= "\n\;\n\; Zone Records\n\;\n\n";
-
-	foreach my $class (@quick_classes) {
-		foreach my $rr (@{$self->{_Zone}->{$class}}) {
-			$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	$class	$rr->{host}\n";
-		}
-	}
-
-	$self->{ZoneFile}	 = $temp_zone_file;
-	return $self->{ZoneFile};
+    $output .= "\n\;\n\; Zone Records\n\;\n\n";
+    foreach (@{$dns_a{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	A	$_->{host}\n";
+    }
+    foreach (@{$dns_cname{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	CNAME	$_->{host}\n";
+    }
+    foreach (@{$dns_a4{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	AAAA	$_->{host}\n";
+    }
+    foreach (@{$dns_txt{$self}}) {
+        $output .= qq[$_->{name}	$_->{ttl} $_->{class} TXT	"$_->{text}"\n]
+    }
+    foreach (@{$dns_ptr{$self}}) {
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	A		$_->{host}\n";
+    }
+    return $output;
 }
 
 
@@ -135,115 +141,125 @@ ZONEHEADER
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 sub _initialize {
-	my $self = shift;
-	$self->{_Zone} = { SOA => {},
-			  AAAA => [],
-			  A => [],
-			  NS  => [],
-			  CNAME => [],
-			  MX  => [],
-			  PTR => [],
-			  TXT => [],			  
-		};
-	$self->{Identity} = {};
-	return 1;
+    my $self = shift;
+    $dns_id    {$self} = {};    $dns_soa   {$self} = {};
+    $dns_ns    {$self} = [];    $dns_a     {$self} = [];
+    $dns_cname {$self} = [];    $dns_mx    {$self} = [];
+    $dns_txt   {$self} = [];    $dns_ptr   {$self} = [];
+    $dns_a4    {$self} = [];
+    return 1;
 }
 
 
-sub load_file {		
-	my ($self, $zonefile) = @_;
-	if(ref($zonefile) eq "SCALAR")	
-	{
-		$self->{ZoneFile} = $$zonefile;
-	} else { 
-		if (open(inZONE, "$zonefile")) {
-			while (<inZONE>) { $self->{ZoneFile} .= $_; }
-			close(inZONE);
-		} else {
-			croak "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
-		}
-	}
-	if ($self->_parse( $zonefile )) { return 1; }
+sub _load_file {
+    my ($self, $zonefile) = @_;
+    my $zone_contents;
+    if(ref($zonefile) eq "SCALAR") {
+        $zone_contents = $$zonefile;
+    } else {
+        local *inZone;
+        if (open(inZONE, "$zonefile")) {
+            $zone_contents = do {local $/; <inZone>};
+            close(inZONE);
+        } else {
+            croak qq[DNS::ZoneParse Could not open input file: "$zonefile":$!]
+        }
+    }
+    if ($self->_parse( $zonefile, $zone_contents )) { return 1; }
 }
 
 
 sub _parse {
-	my ($self, $zonefile) = @_;
-	$self->_initialize();
-    
-	my $chars = qr/[a-z\-\.0-9]+/i;
-	$self->{ZoneFile} =~ /Database file ($chars)( dns)? for ($chars) zone/si;
-	$self->{Identity} = { ZoneFile => $1||$zonefile, Origin => $3||'XXX'};
+    my ($self, $zonefile, $contents) = @_;
+    $self->_initialize();
 
-	$self->{RRs} = [];
-	$self->_clean_records();
-	my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
-	my $rr_class = qr/in|hs|ch/i;
-	my $rr_types = qr/ns|a|cname/i;
-	my $rr_ttl = qr/(?:\d+[wdhms]?)+/i;
-		
-	foreach my $RR (@{$self->{RRs}}) {
-		
-		if ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?($rr_types)\s+($valid_name)/i)
-		{
-			my $class = uc $4;
-			push (@{$self->{_Zone}->{$class}}, {name => $1||'', class=> $3||'', host => $5||'',
-							   ttl => $2||''});
-		}
-		elsif ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?mx\s(\d+)\s($valid_name)/i) 
-		{
-			push (@{$self->{_Zone}->{MX}}, {name => $1||'', priority => $4||'', host => $5||'', 
-							ttl => $2||'', class => $3});
-		}
-		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?SOA\s+($valid_name)\s+($valid_name)\s*?\(?\s*?($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s*\)?/i) {
-			my $ttl = $self->{_Zone}->{SOA}->{ttl}||$2||'';
-			$self->{_Zone}->{SOA} = {origin => $1||'', ttl => $ttl, primary => $4||'', 
-						email =>$5||'', serial => $6||'', refresh=> $7||'', 
-						retry=> $8||'', expire=> $9||'', minimumTTL => $10||''};
-		}
-		elsif ($RR =~ /([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i) {
-			push (@{$self->{_Zone}->{PTR}}, {name => $1||'', class => $3||'', ttl => $2||'', 
-							host => $4||''});
-		}
-		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?TXT\s+\"([^\"]*)\"/i) {
-			push (@{$self->{_Zone}->{TXT}}, {name => $1||'', ttl => $2||'', class => $3||'', 
-							text=> $4||''});
-		}
-		elsif ($RR =~ /\$TTL\s+($rr_ttl)/i) {
-			$self->{_Zone}->{SOA}->{ttl} = $1;
+    my $chars = qr/[a-z\-\.0-9]+/i;
+    $contents =~ /Database file ($chars)( dns)? for ($chars) zone/si;
+    $dns_id{$self} = _massage({ ZoneFile => $1 || $zonefile, Origin => $3 });
+
+    my $records    = $self->_clean_records($contents);
+    my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
+    my $rr_class   = qr/in|hs|ch/i;
+    my $rr_types   = qr/ns|a|cname/i;
+    my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
+    my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)\s*/; 
+
+    foreach (@$records) {
+        if (/^($valid_name)? \s* $ttl_cls ($rr_types) \s+ ($valid_name)/ix) {
+             # host ttl class (ns/a/cname) dest 
+             my $type = uc $4;
+             my $dns_thing = $type eq 'NS' ? $dns_ns{$self}
+                 : $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
+             push @$dns_thing,
+                 _massage({name => $1, class=> $3, host => $5, ttl => $2})
         }
-	}
-	# comment the next two lines for debugging.
-	undef $self->{ZoneFile};
-	undef $self->{RRs};
-	return 1;
+        elsif (/($valid_name)? \s* $ttl_cls MX \s+ (\d+) \s+ ($valid_name)/ix)
+        {
+              # host ttl class mx pri dest
+              push @{$dns_mx{$self}},
+                  _massage({ name => $1, priority => $4,
+                             host => $5, ttl => $2, class => $3})
+        }
+        elsif (/($valid_name) \s+ $ttl_cls
+                SOA \s+ ($valid_name) \s+ ($valid_name) \s*
+                \(?\s* ($rr_ttl) \s+ ($rr_ttl) \s+ ($rr_ttl) \s+
+                ($rr_ttl) \s+ ($rr_ttl) \s* \)? /ix)
+        {
+            # SOA record
+            my $ttl = $dns_soa{self}->{ttl} || $2 || '';
+            $dns_soa{$self} =
+                _massage({ origin => $1, ttl => $ttl, primary => $4,
+                           email =>$5, serial => $6, refresh=> $7,
+                           retry=> $8, expire=> $9, minimumTTL => $10 });
+        }
+        elsif (/([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i)
+        {
+            # PTR
+            push @{$dns_ptr{$self}},
+                _massage({ name => $1, class => $3, ttl => $2,  host => $4 });
+        }
+        elsif (/($valid_name) \s+ $ttl_cls TXT \s+ \"([^\"]*)\"/ix)
+        {
+            push @{$dns_txt{$self}},
+                _massage({ name => $1,  ttl => $2, class => $3, text=> $4});
+        }
+        elsif (/\$TTL\s+($rr_ttl)/i) {
+            $dns_soa{$self}->{ttl} = $1;
+        }
+    }
+    return 1;
 }
 
 sub _clean_records {
-	my $self = shift;
+    my $self = shift;
+    my ($zone) = shift;
 
-	my $zone = $self->{ZoneFile};
-	$zone =~ s/\;.{0,}$//mg;	# Remove comments
-	$zone =~ s/^\s*?$//mg;		# Remove empty lines
-	$zone =~ s#$/{2,}#$/#g;		# Remove double carriage returns
-	
-	# Concatenate everything split over multiple lines i.e. elements surrounded by parentheses can be 
-	# split over multiple lines. See RFC 1035 section 5.1
-	$zone=~ s{(\([^\)]*?\))}{_concatenate( $1)}egs;
+    $zone =~ s<\;.{0,}$><>mg;    # Remove comments
+    $zone =~ s<^\s*?$><>mg;      # Remove empty lines
+    $zone =~ s!$/{2,}!$/!g;      # Remove double carriage returns
 
-	@{$self->{RRs}} = split (m#$/#, $zone);
-	foreach (@{$self->{RRs}}) { s/\s+/\t/g; }
+    # Concatenate everything split over multiple lines i.e. elements surrounded
+    # by parentheses can be split over multiple lines. See RFC 1035 section 5.1
+    $zone =~ s{(\([^\)]*?\))}{_concatenate($1)}egs;
 
-	return 1;
+    my @records = map {s/^\s+//g; $_} split (m|$/|, $zone);
+    return \@records;
 }
 
 sub _concatenate {
-	my $text_in_parenth= shift;
-	$text_in_parenth=~ s{$/}{}g;
-	return $text_in_parenth;
+    my $text_in_parenth= shift;
+    $text_in_parenth=~ s{$/}{}g;
+    return $text_in_parenth;
 }
 
-
+sub _massage {
+    my $record = shift;
+    foreach (keys %$record) {
+        $record->{$_} = "" unless defined $record->{$_};
+        $record->{$_} = uc $record->{$_} if $_ eq 'class';
+    }
+    return $record;
+}
 
 1;
 __END__
@@ -254,25 +270,25 @@ DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone Files.
 
 =head1 SYNOPSIS
 
-	use DNS::ZoneParse;
-
-	my $dnsfile = DNS::ZoneParse->new("/path/to/dns/zonefile.db");
-
-	# Get a reference to the MX records
-	my $mx = $dnsfile->mx;
-	
-	# Change the first mailserver on the list
-	$mx->[0] = { host => 'mail.localhost.com',
-	             priority => 10,
-	             name => '@' };
-
-	# update the serial number
-	$dnsfile->newSerial();
-	
-	# write the new zone file to disk 
-	open NEWZONE, ">/path/to/dns/zonefile.db" or die "error";
-	print NEWZONE $dnsfile->PrintZone();
-	close NEWZONE;
+    use DNS::ZoneParse;
+    
+    my $zonefile = DNS::ZoneParse->new("/path/to/dns/zonefile.db");
+    
+    # Get a reference to the MX records
+    my $mx = $zonefile->mx;
+    
+    # Change the first mailserver on the list
+    $mx->[0] = { host => 'mail.localhost.com',
+                 priority => 10,
+                 name => '@' };
+    
+    # update the serial number
+    $zonefile->new_serial();
+    
+    # write the new zone file to disk 
+    open NEWZONE, ">/path/to/dns/zonefile.db" or die "error";
+    print NEWZONE $zonefile->output();
+    close NEWZONE;
 
 =head1 INSTALLATION
 
@@ -308,17 +324,16 @@ methods.
 This creates the DNS::ZoneParse Object and loads the zonefile
 
 Example:
-    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
+    my $zonefile = DNS::ZoneParse->new("/path/to/zonefile.db");
 
-We do some preliminary checks and then parse the supplied DNS Zone File. You
-can pass it the text content from the DNS Zone File as a reference or the
-path to a filename.
+You can also initialise the object with the contents of a file:
+    my $zonefile = DNS::ZoneParse->new( \$zone_contents );
 
 =item a(), cname(), mx(), ns(), ptr()
 
 These methods return references to the resource records. For example:
 
-    my $mx = $dnsfile->mx;
+    my $mx = $zonefile->mx;
 
 Returns the mx records in an array reference.
 
@@ -333,60 +348,56 @@ Returns a hash reference with the following properties:
 'serial', 'origin', 'primary', 'refresh', 'retry', 'ttl', 'minimumTTL',
 'email', 'expire'
 
-=item Dump
+=item dump
 
-Returns a hash reference of all the resource records. This might be useful if you want
-to quickly transform the data into another format, such as XML.
+Returns a copy of the datastructute that stores all the resource records. This
+might be useful if you want to quickly transform the data into another format,
+such as XML.
 
-=item newSerial
+=item new_serial
 
-C<newSerial()> incriments the Zone serial number. It will generate a date-based
-serial number. Or you can pass a positive number to add to the current serial
-number.
+C<new_serial()> incriments the Zone serial number. It will generate a
+date-based serial number. Or you can pass a positive number to add to the
+current serial number.
 
 Examples:
 
-    $dnsfile->newSerial();    # generates a new serial number based on date:
-                              # YYYYMMDD## format, incriments current serial
-                              # by 1 if the new serial is still smaller than the current.
-    $dnsfile->newSerial(50);  # adds 50 to the original serial number
+    $zonefile->new_serial();    # generates a new serial number based on date:
+                               # YYYYmmddHH format, incriments current serial
+                               # by 1 if the new serial is still smaller
 
-=item PrintZone
+    $zonefile->new_serial(50);  # adds 50 to the original serial number
 
-C<PrintZone()> loops through the Resource Records and returns the new zonefile.
+=item output
 
-
-=item Prepare
-
-(obsolete)
-
-=item Parse
-
-(obsolete)
+C<output()> returns the new zonefile output as a string. If you wish your
+output formatted differently, you can pass the output of C<dump()> to your
+favourite templating module.
 
 =back
 
 =head2 EXAMPLES
 
-This script will print the A records in a zone file, add a new A record for the name
-"new" and then return the zone file.
+This script will print the A records in a zone file, add a new A record for the
+name "new" and then return the zone file.
 
     use strict;
     use DNS::ZoneParse;
     
-    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
+    my $zonefile = DNS::ZoneParse->new("/path/to/zonefile.db");
     
     print "Current A Records\n";
-    my $a_records = $dnsfile->a();
+    my $a_records = $zonefile->a();
     
     foreach my $record (@$a_records) {
-		print "$record->{name} resolves at $record->{host}\n";
+        print "$record->{name} resolves at $record->{host}\n";
     }
-
-    push (@$a_records, { name => 'new', class => 'IN', host => '127.0.0.1', ttl => '' });
-
-    $dnsfile->newSerial();
-    my $newfile = $dnsfile->PrintZone();
+    
+    push (@$a_records, { name => 'new', class => 'IN',
+                         host => '127.0.0.1', ttl => '' });
+    
+    $zonefile->new_serial();
+    my $newfile = $zonefile->output();
 
 
 
@@ -397,13 +408,13 @@ This script will convert a DNS Zonefile to an XML file using XML::Simple.
     use strict;
     use DNS::ZoneParse;
     use XML::Simple;
-    
-    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
 
-    my $new_xml = XMLout($dnsfile->Dump, 
-                         noattr => 1, 
-                         suppressempty => 1, 
-                         rootname => $dnsfile->origin);
+    my $zonefile = DNS::ZoneParse->new("/path/to/zonefile.db");
+
+    my $new_xml = XMLout($zonefile->dump,
+                         noattr => 1,
+                         suppressempty => 1,
+                         rootname => $zonefile->origin);
 
 =head1 CHANGES
 
@@ -417,10 +428,6 @@ see F<Changes>
 
 =item User-supplied callbacks on record parse
 
-=item cleaner API and code
-
-=item add more tests
-
 =back
 
 =head1 EXPORT
@@ -429,7 +436,7 @@ None by default. Object-oriented interface.
 
 =head1 AUTHOR
 
-S. Flack : perl@simonflack.com
+S. Flack
 
 =head1 LICENSE
 
