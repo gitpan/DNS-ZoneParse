@@ -1,5 +1,9 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.92 - Sat Aug 21 2004
+      - Fix reported bugs #3806, #4283, #7363, #7392 with thanks to
+        Martin (mv <at> pdv-systeme <dot> de)
+
 0.91 - Sun Aug 03 2003
       - fix bug #3028 - parsing AAAA records
 
@@ -7,7 +11,7 @@ Revision history for Perl extension DNS::ZoneParse.
       - fix bug #2541 - PTR parse/output error
 
 0.89 - Sat May 3 2003
-      - small fix for perl 5.005 
+      - small fix for perl 5.005
 
 0.88 - Wed Apr 27 2003
       -  fix bug #2440 - parsing ambiguous records improved

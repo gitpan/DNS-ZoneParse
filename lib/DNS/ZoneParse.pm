@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.91
-# CVS: $Id: ZoneParse.pm,v 1.20 2003/08/03 14:28:24 simonflack Exp $
+# Version 0.92
+# CVS: $Id: ZoneParse.pm,v 1.2 2004/08/22 13:05:50 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,10 +11,9 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.91';
+$VERSION = '0.92';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
-    %dns_txt, %dns_ptr, %dns_a4);
-
+    %dns_txt, %dns_ptr, %dns_a4, %dns_last_name);
 
 sub new {
     my $class = shift;
@@ -31,6 +30,7 @@ sub DESTROY {
     delete $dns_a     {$self};    delete $dns_cname {$self};
     delete $dns_mx    {$self};    delete $dns_txt   {$self};
     delete $dns_ptr   {$self};    delete $dns_a4    {$self};
+    delete $dns_id    {$self};    delete $dns_last_name {$self};
 }
 
 sub AUTOLOAD {
@@ -90,7 +90,7 @@ sub output {
 ;
 ;  Database file $dns_id{$self}->{ZoneFile} for $dns_id{$self}->{Origin} zone.
 ;	Zone version: $dns_soa{$self}->{serial}
-; 
+;
 
 \$TTL $dns_soa{$self}->{ttl}
 $dns_soa{$self}->{origin}		$dns_soa{$self}->{ttl}	IN  SOA  $dns_soa{$self}->{primary} $dns_soa{$self}->{email} (
@@ -107,29 +107,36 @@ $dns_soa{$self}->{origin}		$dns_soa{$self}->{ttl}	IN  SOA  $dns_soa{$self}->{pri
 ZONEHEADER
 
     foreach (@{$dns_ns{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	NS	$_->{host}\n";
     }
 
     $output .= "\n\;\n\; Zone MX Records\n\;\n\n";
     foreach (@{$dns_mx{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	MX	$_->{priority} "
                 ." $_->{host}\n";
     }
 
     $output .= "\n\;\n\; Zone Records\n\;\n\n";
     foreach (@{$dns_a{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	A	$_->{host}\n";
     }
     foreach (@{$dns_cname{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	CNAME	$_->{host}\n";
     }
     foreach (@{$dns_a4{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	AAAA	$_->{host}\n";
     }
     foreach (@{$dns_txt{$self}}) {
+        next unless defined;
         $output .= qq[$_->{name}	$_->{ttl} $_->{class} TXT	"$_->{text}"\n]
     }
     foreach (@{$dns_ptr{$self}}) {
+        next unless defined;
         $output .= "$_->{name}	$_->{ttl}	$_->{class}	PTR		$_->{host}\n";
     }
     return $output;
@@ -146,13 +153,13 @@ sub _initialize {
     $dns_ns    {$self} = [];    $dns_a     {$self} = [];
     $dns_cname {$self} = [];    $dns_mx    {$self} = [];
     $dns_txt   {$self} = [];    $dns_ptr   {$self} = [];
-    $dns_a4    {$self} = [];
+    $dns_a4    {$self} = [];    $dns_last_name{$self} = '@';
     return 1;
 }
 
 
 sub _load_file {
-    my ($self, $zonefile) = @_;
+    my ($self, $zonefile, $origin) = @_;
     my $zone_contents;
     if(ref($zonefile) eq "SCALAR") {
         $zone_contents = $$zonefile;
@@ -165,93 +172,113 @@ sub _load_file {
             croak qq[DNS::ZoneParse Could not open input file: "$zonefile":$!]
         }
     }
-    if ($self->_parse( $zonefile, $zone_contents )) { return 1; }
+    if ($self->_parse( $zonefile, $zone_contents, $origin )) { return 1; }
 }
 
 
 sub _parse {
-    my ($self, $zonefile, $contents) = @_;
+    my ($self, $zonefile, $contents, $origin) = @_;
     $self->_initialize();
 
     my $chars = qr/[a-z\-\.0-9]+/i;
     $contents =~ /Database file ($chars)( dns)? for ($chars) zone/si;
-    $dns_id{$self} = _massage({ ZoneFile => $1 || $zonefile, Origin => $3 });
+    $dns_id{$self} = _massage({
+        ZoneFile => $1 || $zonefile,
+        Origin   => $3 || $origin,
+    });
 
     my $records    = $self->_clean_records($contents);
     my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
     my $valid_ip6  = qr/[\@a-z_\-\.0-9\*:]+/i;
-    my $rr_class   = qr/\b(?:in|hs|ch)\b/i;
-    my $rr_types   = qr/\b(?:ns|a|cname)\b/i;
+    my $rr_class   = qr/\b(?:IN|HS|CH)\b/i;
+    my $rr_type    = qr/\b(?:NS|A|CNAME)\b/i;
     my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
-    my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)?\s*/; 
+    my $ttl_cls    = qr/(?:($rr_ttl)\s)?(?:($rr_class)\s)?/;
+    my $last_name  = $dns_id {$self} -> {Origin} || '@';
 
-    _massage();    # reset last_name
     foreach (@$records) {
-        if (/^($valid_name)? \s*          # host
-              (?:($rr_ttl)\s+)?           # ttl
-              (?:\b($rr_class)\s+)?\s*    # class
-              ($rr_types) \s+             # record type
-              ($valid_name)               # record data
+        TRACE ("parsing line <$_>");
+        if (/^($valid_name)? \s*      # host
+              $ttl_cls                   # ttl & class
+              ($rr_type) \s              # record type
+              ($valid_name)              # record data
              /ix) {
              my ($name, $ttl, $class, $type, $host) = ($1, $2, $3, $4, $5);
-             if (!$class && defined $name && $name =~ /^$rr_class$/) {
-                 $class = uc $name;
-                 undef $name;
-             }
              my $dns_thing = uc $type eq 'NS' ? $dns_ns{$self}
                  : uc $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
              push @$dns_thing,
-                 _massage({name => $name, class=> $class,
-                           host => $host, ttl => $ttl})
+                 $self -> _massage({name => $name, class=> $class,
+                                    host => $host, ttl => $ttl});
         }
-        elsif (/($valid_name)? \s* $ttl_cls AAAA \s+ ($valid_ip6)/)
+        elsif (/^($valid_name)? \s*
+                $ttl_cls
+                AAAA \s
+                ($valid_ip6)
+                /x)
         {
             my ($name, $ttl, $class, $host) = ($1, $2, $3, $4);
-             if (!$class && defined $name && $name =~ /^$rr_class$/) {
-                 $class = uc $name;
-                 undef $name;
-             }
              push @{$dns_a4{$self}},
-                 _massage({name => $name, class=> $class,
-                           host => $host, ttl => $ttl})
+                 $self -> _massage({name => $name, class=> $class,
+                                    host => $host, ttl => $ttl})
         }
-        elsif (/($valid_name)? \s* $ttl_cls MX \s+ (\d+) \s+ ($valid_name)/ix)
+        elsif (/^($valid_name)? \s*
+                 $ttl_cls
+                 MX \s
+                 (\d+) \s
+                 ($valid_name)
+               /ix)
         {
               # host ttl class mx pri dest
              my ($name, $ttl, $class, $pri, $host) = ($1, $2, $3, $4, $5);
-             if (!$class && defined $name && $name =~ /^$rr_class$/) {
-                 $class = uc $name;
-                 undef $name;
-             }
              push @{$dns_mx{$self}},
-                  _massage({ name => $name, priority => $pri,
-                             host => $host, ttl => $ttl, class => $class})
+                  $self -> _massage({ name => $name, priority => $pri,
+                                      host => $host, ttl => $ttl,
+                                      class => $class})
         }
-        elsif (/($valid_name) \s+ $ttl_cls
-                SOA \s+ ($valid_name) \s+ ($valid_name) \s*
-                \(?\s* ($rr_ttl) \s+ ($rr_ttl) \s+ ($rr_ttl) \s+
-                ($rr_ttl) \s+ ($rr_ttl) \s* \)? /ix)
+        elsif (/^($valid_name) \s+
+                 $ttl_cls
+                 SOA \s+
+                 ($valid_name) \s+
+                 ($valid_name) \s*
+                 \(?\s*
+                     ($rr_ttl) \s+
+                     ($rr_ttl) \s+
+                     ($rr_ttl) \s+
+                     ($rr_ttl) \s+
+                     ($rr_ttl) \s*
+                 \)?
+               /ix)
         {
             # SOA record
             my $ttl = $dns_soa{$self}->{ttl} || $2 || '';
             $dns_soa{$self} =
-                _massage({ origin => $1, ttl => $ttl, primary => $4,
-                           email =>$5, serial => $6, refresh=> $7,
-                           retry=> $8, expire=> $9, minimumTTL => $10 });
+                $self -> _massage({ origin => $1, ttl => $ttl, primary => $4,
+                                    email => $5, serial => $6, refresh => $7,
+                                    retry => $8, expire => $9,
+                                    minimumTTL => $10 });
         }
-        elsif (/(\d$valid_name+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i)
+        elsif (/^($valid_name) \s*
+                $ttl_cls
+                PTR \s+
+                ($valid_name)
+               /ix)
         {
             # PTR
             push @{$dns_ptr{$self}},
-                _massage({ name => $1, class => $3, ttl => $2,  host => $4 });
+                $self -> _massage({ name => $1, class => $3, ttl => $2,
+                                    host => $4 });
         }
-        elsif (/($valid_name) \s+ $ttl_cls TXT \s+ \"([^\"]*)\"/ix)
+        elsif (/($valid_name)? \s $ttl_cls TXT \s \"([^\"]*)\"/ix)
         {
             push @{$dns_txt{$self}},
-                _massage({ name => $1,  ttl => $2, class => $3, text=> $4});
+                $self -> _massage({ name => $1,  ttl => $2, class => $3,
+                                    text=> $4});
         }
         elsif (/\$TTL\s+($rr_ttl)/i) {
             $dns_soa{$self}->{ttl} = $1;
+        }
+        else {
+            carp "Unparseable line\n  $_\n";
         }
     }
     return 1;
@@ -261,40 +288,49 @@ sub _clean_records {
     my $self = shift;
     my ($zone) = shift;
 
-    $zone =~ s<\;.{0,}$><>mg;    # Remove comments
-    $zone =~ s<^\s*?$><>mg;      # Remove empty lines
-    $zone =~ s!$/{2,}!$/!g;      # Remove double carriage returns
+    $zone =~ s<\;.*$> <>mg;  # Remove comments
+    $zone =~ s<^\s*$> <>mg;  # Remove empty lines
+    $zone =~ s<$/+>   <$/>g; # Remove multiple carriage returns
+    $zone =~ s<[ \t]+>< >g;  # Collapse whitespace, turn TABs to spaces
 
     # Concatenate everything split over multiple lines i.e. elements surrounded
     # by parentheses can be split over multiple lines. See RFC 1035 section 5.1
     $zone =~ s{(\([^\)]*?\))}{_concatenate($1)}egs;
 
-    my @records = map {s/^\s+//g; $_} split (m|$/|, $zone);
+    # Split into multiple records, and kick out empty lines
+    my @records = grep !/^$/, split (m|$/|, $zone);
     return \@records;
 }
 
 sub _concatenate {
     my $text_in_parenth= shift;
-    $text_in_parenth=~ s{$/}{}g;
+    $text_in_parenth=~ s{\s*$/\s*}{ }g;
     return $text_in_parenth;
 }
 
-my $last_name = '@';
 sub _massage {
+    my $self = shift;
     my $record = shift;
-    return $last_name = '@' unless $record;
+    my $last_name = \$dns_last_name {$self};
+
     foreach (keys %$record) {
         $record->{$_} = "" unless defined $record->{$_};
         $record->{$_} = uc $record->{$_} if $_ eq 'class';
     }
-    return $record unless defined $record->{name};
+
+    return $record unless exists $record->{name};
     if (length $record->{name}) {
-        $last_name = $record->{name};
+        $$last_name = $record->{name};
     } else {
-        $record->{name} = $last_name;
+        TRACE("Record has no name, using last name");
+        $record->{name} = $$last_name;
     }
+    DUMP("Record parsed", $record);
     return $record;
 }
+
+sub TRACE {0 && print @_, $/}
+sub DUMP  {0 && require Data::Dumper && TRACE(shift, Data::Dumper::Dumper(@_))}
 
 1;
 __END__
@@ -307,7 +343,7 @@ DNS::ZoneParse - Parse and manipulate DNS Zone Files.
 
     use DNS::ZoneParse;
     
-    my $zonefile = DNS::ZoneParse->new("/path/to/dns/zonefile.db");
+    my $zonefile = DNS::ZoneParse->new("/path/to/dns/zonefile.db", $origin);
     
     # Get a reference to the MX records
     my $mx = $zonefile->mx;
@@ -363,6 +399,11 @@ Example:
 
 You can also initialise the object with the contents of a file:
     my $zonefile = DNS::ZoneParse->new( \$zone_contents );
+
+You can pass a second, optional parameter to the constructor to supply an
+C<$origin> if none can be found in the zone file.
+
+    my $zonefile = DNS::ZoneParse->new( \$zone_contents, $origin );
 
 =item a(), cname(), mx(), ns(), ptr()
 
@@ -473,6 +514,12 @@ L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=DNS-ZoneParse>
 
 If possible, please provide a diff against F<t/dns-zoneparse.t> and
 F<t/test-zone.db> that demonstrates the bug(s).
+
+=head1 SEE ALSO
+
+Other modules with similar functionality:
+
+Net::DNS::ZoneParser, Net::DNS::ZoneFile, DNS::ZoneFile
 
 =head1 AUTHOR
 

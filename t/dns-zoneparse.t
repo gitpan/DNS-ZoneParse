@@ -64,19 +64,22 @@ sub test_zone {
             'ttl' => '', 'name' => 'www', 'class' => 'IN', 'host' => '10.0.0.2'
            },
            {
-            'ttl' => '', 'name' => 'www', 'class' => '', 'host' => '10.0.0.4'
+            'ttl' => '43200', 'name' => 'www', 'class' => 'IN', 'host' => '10.0.0.3'
            },
            {
-            'ttl' => '', 'name' => 'foo', 'class' => 'IN', 'host' => '10.0.0.5'
+            'ttl' => '', 'name' => 'www', 'class' => '', 'host' => '10.0.0.5'
+           },
+           {
+            'ttl' => '', 'name' => 'foo', 'class' => 'IN', 'host' => '10.0.0.6'
            },
             {
-            'ttl' => '', 'name' => 'mini', 'class' => '', 'host' => '10.0.0.6'
+            'ttl' => '', 'name' => 'mini', 'class' => '', 'host' => '10.0.0.7'
            },
           ], 'A records parsed OK');
 
     is_deeply($zf->ns, [
           {
-            'ttl' => '',
+            'ttl' => '43200',
             'name' => '@',
             'class' => 'IN',
             'host' => 'ns0.dns-zoneparse-test.net.'
@@ -102,7 +105,7 @@ sub test_zone {
             'ttl' => '',
             'name' => 'www',
             'class' => 'IN',
-            'host' => '10.0.0.3'
+            'host' => '10.0.0.4'
           },
         ], 'MX records parsed OK');
 
@@ -117,6 +120,12 @@ sub test_zone {
 
 
     is_deeply($zf->txt, [
+          {
+            'text' => 'web server',
+            'ttl' => '',
+            'name' => 'www',
+            'class' => ''
+          },
           {
             'text' => 'This is a text message',
             'ttl' => '',
