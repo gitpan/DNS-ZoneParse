@@ -1,15 +1,17 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
 # Version 0.30
-# CVS: $Id: ZoneParse.pm,v 1.4 2001-04-04 02:09:13+01 simon Exp simon $
+# CVS: $Id: ZoneParse.pm,v 1.5 2001-05-21 13:00:51+01 simon Exp simon $
 package DNS::ZoneParse;
 
 require 5.005_03;
+use vars qw($VERSION @ISA);
 use strict;
+use Carp;
 
 require Exporter;
-my @ISA = qw(Exporter);
-my $VERSION = '0.30';
+@ISA = qw(Exporter);
+$VERSION = '0.35';
 
 
 sub new {
@@ -48,7 +50,7 @@ sub Prepare {
 			close(inZONE);
 			$self->Parse();
 		} else {
-			die "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
+			croak "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
 		}
 	}
 	if ($self->Parse()) { return 1; }
@@ -70,7 +72,7 @@ sub Parse {
 		
 	foreach my $RR (@{$self->{RRs}}) {
 		
-		if ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?($rr_types)\s+($valid_name)/i)
+		if ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?($rr_types)\s+($valid_name)/i)
 		{
 			my $class = uc $4;
 			push (@{$self->{Zone}->{$class}}, {name => $1.'', class=> $3.'', host => $5.'',
@@ -81,7 +83,7 @@ sub Parse {
 			push (@{$self->{Zone}->{MX}}, {name => $1.'', priority => $4.'', host => $5.'', 
 							ttl => $2.'', class => $3});
 		}
-		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?SOA\s+($valid_name)\s+($valid_name)\s*?\(?\s*?($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+\)?/i) {
+		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?SOA\s+($valid_name)\s+($valid_name)\s*?\(?\s*?($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s*\)?/i) {
 			$self->{Zone}->{SOA} = {origin => $1.'', ttl => $2.'', primary => $4.'', 
 						email =>$5.'', serial => $6.'', refresh=> $7.'', 
 						retry=> $8.'', expire=> $9.'', minimumTTL => $10.''};
@@ -128,7 +130,7 @@ sub _concatenate {
 sub newSerial {
 	my $self = shift;
 	my $incriment = shift;
-	warn "Parse RRs before incrimenting the serial number" unless $self->{Zone}->{SOA}->{serial};
+	carp "Parse RRs before incrimenting the serial number" unless $self->{Zone}->{SOA}->{serial};
 	if ($incriment > 0) { 
 		$self->{Zone}->{SOA}->{serial} += $incriment;
 	} else {

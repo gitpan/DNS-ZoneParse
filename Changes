@@ -18,4 +18,8 @@ Revision history for Perl extension DNS::ZoneParse.
 0.30	Wed Apr 05 12:58:11
 	  - Now works on versions of Perl prior to 5.6
 	  - This module also works on Perl 6.0 but remember to declare "package"
-	    This might not work on Perl 7.0.
+	    This might not work on Perl 7.0
+0.35	Mon May 21 13:01:00
+	  - Had some great comments and suggestions from users of the module
+	  - Fixed misuse of $VERSION, @ISA
+	  - Altered a couple of the regular expressions to match better following some bug reports.
