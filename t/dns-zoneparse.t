@@ -1,6 +1,6 @@
 use strict;
 BEGIN {$^W++};
-use Test::More tests => 19;
+use Test::More tests => 21;
 use File::Spec::Functions ':ALL';
 
 # See if the module compiles - it should...
@@ -131,5 +131,14 @@ sub test_zone {
           }
 
         ], 'TXT records parsed OK');
+
+    is_deeply($zf->aaaa, [
+          {
+            'host' => 'fe80::0260:83ff:fe7c:3a2a',
+            'ttl' => '',
+            'name' => 'icarus',
+            'class' => 'IN'
+          }
+        ], 'AAAA records parsed OK');
 }
 

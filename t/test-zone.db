@@ -22,5 +22,6 @@ www                     IN	A	127.0.0.1
                                 A       10.0.0.4
 foo                     IN      A       10.0.0.5
 mini                            A       10.0.0.6
+icarus                  IN      AAAA    fe80::0260:83ff:fe7c:3a2a
 soup                    IN      TXT     "This is a text message"
 txta                            TXT     "This is another text message"

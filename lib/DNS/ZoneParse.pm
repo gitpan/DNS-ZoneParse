@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.90
-# CVS: $Id: ZoneParse.pm,v 1.18 2003/05/11 21:03:52 simonflack Exp $
+# Version 0.91
+# CVS: $Id: ZoneParse.pm,v 1.20 2003/08/03 14:28:24 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.90';
+$VERSION = '0.91';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -179,6 +179,7 @@ sub _parse {
 
     my $records    = $self->_clean_records($contents);
     my $valid_name = qr/[\@a-z_\-\.0-9\*]+/i;
+    my $valid_ip6  = qr/[\@a-z_\-\.0-9\*:]+/i;
     my $rr_class   = qr/\b(?:in|hs|ch)\b/i;
     my $rr_types   = qr/\b(?:ns|a|cname)\b/i;
     my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
@@ -200,6 +201,17 @@ sub _parse {
              my $dns_thing = uc $type eq 'NS' ? $dns_ns{$self}
                  : uc $type eq 'A' ? $dns_a{$self} : $dns_cname{$self};
              push @$dns_thing,
+                 _massage({name => $name, class=> $class,
+                           host => $host, ttl => $ttl})
+        }
+        elsif (/($valid_name)? \s* $ttl_cls AAAA \s+ ($valid_ip6)/)
+        {
+            my ($name, $ttl, $class, $host) = ($1, $2, $3, $4);
+             if (!$class && defined $name && $name =~ /^$rr_class$/) {
+                 $class = uc $name;
+                 undef $name;
+             }
+             push @{$dns_a4{$self}},
                  _massage({name => $name, class=> $class,
                            host => $host, ttl => $ttl})
         }
@@ -446,10 +458,10 @@ see F<Changes>
 =head1 API
 
 The DNS::ZoneParse API may change in future versions. At present, the parsing
-is not as strict as it should be and support for C<$ORIGIN> and C<$TTL> is quite
-basic. It would also be nice to support the C<INCLUDE> statement. Furthermore,
-parsing large zonefiles with thousands of records can use lots of memory - some
-people have requested a callback interface.
+is not as strict as it should be and support for C<$ORIGIN> and C<$TTL> is
+quite basic. It would also be nice to support the C<INCLUDE>
+statement. Furthermore, parsing large zonefiles with thousands of records can
+use lots of memory - some people have requested a callback interface.
 
 =head1 BUGS
 
