@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.10
-# CVS: $Id: ZoneParse.pm,v 1.2 2001-03-12 14:44:34+00 simon Exp simon $
+# Version 0.20
+# CVS: $Id: ZoneParse.pm,v 1.3 2001-03-12 22:07:48+00 simon Exp simon $
 package DNS::ZoneParse;
 
 require 5.005_62;
@@ -9,7 +9,7 @@ use strict;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our $VERSION = '0.10';
+our $VERSION = '0.20';
 
 
 sub new {
@@ -40,17 +40,27 @@ sub Prepare {
 	my ($self, $zonefile) = @_;
 	if(ref($zonefile) eq "SCALAR")	
 	{
-		$self->{ZoneFile} = $zonefile;
-		my $chars = qr/[a-z\-\.0-9]+/i;
-		$$zonefile =~ /Database file ($chars)( dns)? for ($chars) zone/si;
-		$self->{Identity} = { ZoneFile => $1, Origin => $3};
-		$self->Parse();
-	} else { return undef; }
-	return 1;
+		$self->{ZoneFile} = $$zonefile;
+		$self->_pre_parse();
+	} else { 
+		if (open(infile, "$zonefile")) {
+			while (<infile>) { $self->{ZoneFile} .= $_ }
+			close(infile);
+			$self->_pre_parse();
+		} else {
+			die "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
+		}
+	}
+	if ($self->Parse()) { return 1; }
 }
+
 
 sub Parse {
 	my $self=shift;
+	my $chars = qr/[a-z\-\.0-9]+/i;
+	$self->{ZoneFile} =~ /Database file ($chars)( dns)? for ($chars) zone/si;
+	$self->{Identity} = { ZoneFile => $1, Origin => $3};
+
 	$self->{RRs} = [];
 	$self->_clean_records();
 	my $valid_name = qr/[\@a-z\-\.0-9\*]+/i;
@@ -94,7 +104,7 @@ sub Parse {
 sub _clean_records {
 	my $self = shift;
 
-	my $zone = ${$self->{ZoneFile}};
+	my $zone = $self->{ZoneFile};
 	$zone =~ s/\;.{0,}$//mg;	# Remove comments
 	$zone =~ s/^\s*?$//mg;		# Remove empty lines
 	$zone =~ s#$/{2,}#$/#g;		# Remove double carriage returns
@@ -183,21 +193,27 @@ DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone Files.
 
 =head1 SYNOPSIS
 
-	use C<DNS::ZoneParse>;
+	use DNS::ZoneParse;
 
-	my $dnsfile = C<DNS::ZoneParse>->new();
+	my $dnsfile = DNS::ZoneParse->new();
 
-	open (FH, "/path/to/dns/zonefile.db");
-	while (<FH>) { $zonefile .= $_ }
-	close (FH);
-
-	$dnsfile->Prepare(\$zonefile);
+	$dnsfile->Prepare("/path/to/dns/zonefile.db");
 
 	print $dnsfile->{Zone}->{SOA}->{serial};
 	$dnsfile->newSerial();
 	print $dnsfile->{Zone}->{SOA}->{serial};
 	
 	print $dnsfile->PrintZone();
+
+=head1 INSTALLATION
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+Win32 users substitute "make" with "nmake" or equivalent. 
+nmake is available at http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15.exe
 
 =head1 DESCRIPTION
 
@@ -209,9 +225,123 @@ You can access the objects in the $object->{Zone} hash to add\remove\modify RRs 
 
 I will update this documentation - it's pretty sparse at the moment, but many more features coming...
 	
-=head2 EXPORT
 
-None by default.
+=head2 METHODS
+
+=over 4
+
+=item new
+
+This creates the DNS::ZoneParse Object
+
+Example:
+    my $dnsfile = DNS::ZoneParse->new();
+
+=item Prepare
+
+C<Prepare()> will do some preliminary checks and then parse the supplied DNS Zone File. You can pass it the text content from the DNS Zone File as a reference or the path to a filename.
+
+Examples:
+
+    $dnsfile->Prepare("/path/to/zonefile.db");
+
+or
+
+    my $zonefile;
+    open (Zone, "/path/to/zonefile.db");
+    while (<Zone>) { $zonefile .= $_ }
+    close (Zone);
+
+    $dnsfile->Prepare(\$zonefile);
+
+=item Parse
+
+C<Parse()> is called internally by the C<Prepare()> method. You can call it independently. It takes no arguments. All that is required is that $object->{ZoneFile} (string) contains a valid DNS Zone File.
+
+=item newSerial
+
+C<newSerial()> incriments the Zone serial number. You can pass a positive number to add to the current serial number or it will default to 1.
+
+Examples:
+
+    $dnsfile->newSerial();    # adds 1 to the original serial number
+    $dnsfile->newSerial(50);    # adds 50 to the original serial number
+    $dnsfile->newSerial(-50);    # adds 1 to the original serial number
+
+=item PrintZone
+
+C<PrintZone()> loops through the Resource Records and creates a zone file in $object->{ZoneFile}. It also returns the new zonefile.
+
+=back
+
+=head2 EXAMPLES
+
+This script will print the A records in a zone file, add a new A record for the name "new" and then return the zone file.
+
+    use strict;
+    use DNS::ZoneParse;
+    
+    my $dnsfile = DNS::ZoneParse->new();
+    $dnsfile->Prepare("/path/to/zonefile.db");
+    
+    print "Current A Records\n";
+    foreach my $a (@{$dnsfile->{Zone}->{A}}) {
+        print "$a->{name} resolves at $a->{host}\n";
+    }
+
+    push (@{$dnsfile->{Zone}->{A}}, { name => 'new', class => 'IN', host => '127.0.0.1', ttl => '' });
+
+    $dnsfile->newSerial();
+    my $newfile = $dnsfile->PrintZone();
+
+
+
+
+This script will convert a DNS Zonefile to an XML file using XML::Simple.
+
+
+    use strict;
+    use DNS::ZoneParse;
+    use XML::Simple;
+    
+    my $dnsfile = DNS::ZoneParse->new();
+    $dnsfile->Prepare("/path/to/zonefile.db");
+
+    my $new_xml = XMLout($dnsfile->{Zone}, noattr => 1, suppressempty => 1, rootname => $dnsfile->{Zone}->{SOA}->{serial});
+
+
+=head1 EXPORT
+
+None by default. Object-oriented interface.
+
+=head1 TO DO
+
+These are things that I need to do...
+
+=over 4
+Resource Records that have multiple entries\ip addresses
+
+=item IPv6 compatability
+
+There is already space for the AAAA records, but I need to read the rest of the RFCs before I finish this part.
+
+=item More intelligent serial number generation.
+
+Possibly add the option of date-based updates to serial number
+
+=item Cleaner parsing
+
+The parsing here does work on the tested systems, but there may be cleaner ways of doing it.
+
+=item Better documentation
+
+Come on, you know this is hopeless!
+
+=back
+
+=head1 BUGS & REQUESTS
+
+Please let me know!
 
 
 =head1 AUTHOR

@@ -3,3 +3,4 @@ Makefile.PL
 MANIFEST
 test.pl
 ZoneParse.pm
+README.html

@@ -1,0 +1,14 @@
+Revision history for Perl extension DNS::ZoneParse.
+
+0.01  Wed Mar  7 13:46:49 2001
+	- original version; created by h2xs 1.20
+
+0.10	Mon Mar 12 14:44:00 2001
+	  - First version published to CPAN
+
+0.15	Mon Mar 12 19:00:00 2001
+	  - Ability to pass filename or string reference to DNS Zone File
+
+0.20 	Mon Mar 12 22:07:00 2001
+	  - Updated Documentation, plus a nice HTML one.
+	  - Slighty Tidier methods
