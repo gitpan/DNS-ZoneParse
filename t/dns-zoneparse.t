@@ -72,6 +72,9 @@ sub test_zone {
            {
             'ttl' => '', 'name' => 'foo', 'class' => 'IN', 'host' => '10.0.0.5'
            },
+            {
+            'ttl' => '', 'name' => 'mini', 'class' => '', 'host' => '10.0.0.6'
+           },
           ], 'A records parsed OK');
 
     is_deeply($zf->ns, [

@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.85
-# CVS: $Id: ZoneParse.pm,v 1.12 2003/03/24 22:43:19 simonflack Exp $
+# Version 0.86
+# CVS: $Id: ZoneParse.pm,v 1.13 2003/03/26 00:01:12 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.85';
+$VERSION = '0.86';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -188,7 +188,7 @@ sub _parse {
         if (/^($valid_name)? \s* $ttl_cls ($rr_types) \s+ ($valid_name)/ix) {
              # host ttl class (ns/a/cname) dest 
              my ($name, $ttl, $class, $type, $host) = ($1, $2, $3, $4, $5);
-             if (!$class && defined $name && $name =~ /$rr_class/) {
+             if (!$class && defined $name && $name =~ /^$rr_class$/) {
                  $class = uc $name;
                  undef $name;
              }
@@ -425,31 +425,32 @@ This script will convert a DNS Zonefile to an XML file using XML::Simple.
 
 see F<Changes>
 
-=head1 TODO
+=head1 API
 
-=over 4
+The DNS::ZoneParse API may change in future versions. At present, the parsing
+is not as strict as it should be and support for C<$ORIGIN> and C<$TTL> is quite
+basic. It would also be nice to support the C<INCLUDE> statement. Furthermore,
+parsing large zonefiles with thousands of records can use lots of memory - some
+people have requested a callback interface.
 
-=item Rewrite parser - Parse::RecDescent maybe?
+=head1 BUGS
 
-=item User-supplied callbacks on record parse
+I can squash more bugs with your help. Please let me know if you spot something
+that doesn't work as expected.
 
-=back
+You can report bugs via the CPAN RT:
+L<http://rt.cpan.org/NoAuth/Bugs.html?dist=DNS-ZoneParse>
 
-=head1 EXPORT
-
-None by default. Object-oriented interface.
+If possible, please provide a diff against F<t/dns-zoneparse.t> and
+F<t/test-zone.db> that demonstrates the bug(s).
 
 =head1 AUTHOR
 
-S. Flack
+Simon Flack
 
 =head1 LICENSE
 
 DNS::ZoneParse is free software which you can redistribute and/or modify under
 the same terms as Perl itself.
-
-=head1 SEE ALSO
-
-DNS::ZoneFile
 
 =cut

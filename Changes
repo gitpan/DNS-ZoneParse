@@ -1,5 +1,9 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.86 - Tue Mar 25 2003
+      - bug fix in 0.85 introduced new bug. FIXED with test. (Thanks Alex Woods)
+      - use opportunity to update API and BUGS sections in POD
+
 0.85 - Mon Mar 24 2003
       - fix filehandle typo in lib/DNS/ZoneParse.pm
       - update tests to test object ctor for filename
