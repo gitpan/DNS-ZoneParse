@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
 # Version 0.92
-# CVS: $Id: ZoneParse.pm,v 1.2 2004/08/22 13:05:50 simonflack Exp $
+# CVS: $Id: ZoneParse.pm,v 1.3 2004/09/01 18:54:17 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.92';
+$VERSION = '0.93';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4, %dns_last_name);
 
@@ -381,7 +381,7 @@ you want to generate an XML-friendly version of your zone files, it is
 easy to use XML::Simple with this module once you have parsed the zonefile.
 
 DNS::ZoneParse scans the DNS zonefile - removes comments and seperates
-the file into it's constituent records. It then parses each record and
+the file into its constituent records. It then parses each record and
 stores the records internally. See below for information on the accessor
 methods.
 

@@ -1,5 +1,8 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.93 - Wed Sep 1 2004
+      - s/it's/its/ (RT bug #7533, Debian bug #268524)
+
 0.92 - Sat Aug 21 2004
       - Fix reported bugs #3806, #4283, #7363, #7392 with thanks to
         Martin (mv <at> pdv-systeme <dot> de)
