@@ -1,14 +1,14 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
 # Version 0.8
-# CVS: $Id: ZoneParse.pm,v 1.3 2002/07/14 16:43:55 simonflack Exp $
+# CVS: $Id: ZoneParse.pm,v 1.4 2002/07/16 10:51:56 simonflack Exp $
 package DNS::ZoneParse;
 
 use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.81';
+$VERSION = '0.82';
 
 sub new {
     my $class = shift;
@@ -83,7 +83,7 @@ sub newSerial {
 
 sub PrintZone {
 	my $self = shift;
-	my @quick_classes = qw(A CNAME PTR);	
+	my @quick_classes = qw(A AAAA CNAME PTR);	
 	my $temp_zone_file = "";
 	$temp_zone_file .= <<ZONEHEADER;
 ;
@@ -91,6 +91,7 @@ sub PrintZone {
 ;	Zone version: $self->{_Zone}->{SOA}->{serial}
 ; 
 
+\$TTL $self->{_Zone}->{SOA}->{ttl}
 $self->{_Zone}->{SOA}->{origin}		$self->{_Zone}->{SOA}->{ttl}	IN  SOA  $self->{_Zone}->{SOA}->{primary} $self->{_Zone}->{SOA}->{email} (
 				$self->{_Zone}->{SOA}->{serial}	; serial number
 				$self->{_Zone}->{SOA}->{refresh}	; refresh

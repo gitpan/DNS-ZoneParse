@@ -42,6 +42,11 @@ Revision history for Perl extension DNS::ZoneParse.
 	 	Added more serious tests for the CPAN-testers
 
 0.81 - Sun Jul 14 2002, 17:00
-		Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura, Ivan Kohlerand others. 
+		Fixed bugs. Thanks to Olivier Poitrey, Brian Ventura, Ivan 
+                            Kohler and others. 
 		Bugs fixed: PTR records not printed, PTR records parsed incorrectly,
 			alphanumeric chars in TTL, underscores in zone data.
+
+0.82 - Tue Jul 16 2002
+		Add patches to add support for AAAA records and add TTL to 
+		zone output. Thanks again to Olivier Poitrey
