@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.89
-# CVS: $Id: ZoneParse.pm,v 1.16 2003/04/29 00:20:07 simonflack Exp $
+# Version 0.90
+# CVS: $Id: ZoneParse.pm,v 1.18 2003/05/11 21:03:52 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.89';
+$VERSION = '0.90';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -130,7 +130,7 @@ ZONEHEADER
         $output .= qq[$_->{name}	$_->{ttl} $_->{class} TXT	"$_->{text}"\n]
     }
     foreach (@{$dns_ptr{$self}}) {
-        $output .= "$_->{name}	$_->{ttl}	$_->{class}	A		$_->{host}\n";
+        $output .= "$_->{name}	$_->{ttl}	$_->{class}	PTR		$_->{host}\n";
     }
     return $output;
 }
@@ -221,13 +221,13 @@ sub _parse {
                 ($rr_ttl) \s+ ($rr_ttl) \s* \)? /ix)
         {
             # SOA record
-            my $ttl = $dns_soa{self}->{ttl} || $2 || '';
+            my $ttl = $dns_soa{$self}->{ttl} || $2 || '';
             $dns_soa{$self} =
                 _massage({ origin => $1, ttl => $ttl, primary => $4,
                            email =>$5, serial => $6, refresh=> $7,
                            retry=> $8, expire=> $9, minimumTTL => $10 });
         }
-        elsif (/([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i)
+        elsif (/(\d$valid_name+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i)
         {
             # PTR
             push @{$dns_ptr{$self}},
@@ -289,7 +289,7 @@ __END__
 
 =head1 NAME
 
-DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone Files.
+DNS::ZoneParse - Parse and manipulate DNS Zone Files.
 
 =head1 SYNOPSIS
 

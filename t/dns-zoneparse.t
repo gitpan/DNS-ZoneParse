@@ -36,7 +36,7 @@ sub test_zone {
     is_deeply($zf->soa, {
                  'minimumTTL' => '86400',
                  'serial' => $serial,
-                 'ttl' => '3600',
+                 'ttl' => '1H',
                  'primary' => 'ns0.dns-zoneparse-test.net.',
                  'origin' => '@',
                  'email' => 'support.dns-zoneparse-test.net.',

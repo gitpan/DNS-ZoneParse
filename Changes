@@ -1,5 +1,8 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.90 - Sun May 11 2003
+      - fix bug #2541 - PTR parse/output error
+
 0.89 - Sat May 3 2003
       - small fix for perl 5.005 
 
