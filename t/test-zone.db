@@ -18,7 +18,7 @@ localhost               IN	A	127.0.0.1
 mail                    IN	A	127.0.0.1
 www                     IN	A	127.0.0.1
                         in      a       10.0.0.2
-                        IN      A       10.0.0.3
+                        IN      MX      10      10.0.0.3
                                 A       10.0.0.4
 foo                     IN      A       10.0.0.5
 mini                            A       10.0.0.6

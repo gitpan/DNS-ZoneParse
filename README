@@ -149,7 +149,8 @@ BUGS
     something that doesn't work as expected.
 
     You can report bugs via the CPAN RT:
-    <http://rt.cpan.org/NoAuth/Bugs.html?dist=DNS-ZoneParse>
+    <http://rt.cpan.org/NoAuth/Bugs.html?Dist=DNS-ZoneParse> or send an
+    email to "bug-DNS-ZoneParse@rt.cpan.org"
 
     If possible, please provide a diff against t/dns-zoneparse.t and
     t/test-zone.db that demonstrates the bug(s).

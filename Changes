@@ -1,5 +1,10 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.87 - Wed Mar 26 2003
+      - Bug fixes thanks to Alex Woods
+      - fix bug #2290 - parsing MX records without name
+      - fix bug #2291 - populate 'name' fields with parent name if undef
+
 0.86 - Tue Mar 25 2003
       - bug fix in 0.85 introduced new bug. FIXED with test. (Thanks Alex Woods)
       - use opportunity to update API and BUGS sections in POD

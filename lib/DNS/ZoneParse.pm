@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.86
-# CVS: $Id: ZoneParse.pm,v 1.13 2003/03/26 00:01:12 simonflack Exp $
+# Version 0.87
+# CVS: $Id: ZoneParse.pm,v 1.14 2003/03/26 12:31:46 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.86';
+$VERSION = '0.87';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4);
 
@@ -184,6 +184,7 @@ sub _parse {
     my $rr_ttl     = qr/(?:\d+[wdhms]?)+/i;
     my $ttl_cls    = qr/(?:($rr_ttl)\s+)?(?:\b($rr_class)\s+)?\s*/; 
 
+    _massage();    # reset last_name
     foreach (@$records) {
         if (/^($valid_name)? \s* $ttl_cls ($rr_types) \s+ ($valid_name)/ix) {
              # host ttl class (ns/a/cname) dest 
@@ -201,9 +202,14 @@ sub _parse {
         elsif (/($valid_name)? \s* $ttl_cls MX \s+ (\d+) \s+ ($valid_name)/ix)
         {
               # host ttl class mx pri dest
-              push @{$dns_mx{$self}},
-                  _massage({ name => $1, priority => $4,
-                             host => $5, ttl => $2, class => $3})
+             my ($name, $ttl, $class, $pri, $host) = ($1, $2, $3, $4, $5);
+             if (!$class && defined $name && $name =~ /^$rr_class$/) {
+                 $class = uc $name;
+                 undef $name;
+             }
+             push @{$dns_mx{$self}},
+                  _massage({ name => $name, priority => $pri,
+                             host => $host, ttl => $ttl, class => $class})
         }
         elsif (/($valid_name) \s+ $ttl_cls
                 SOA \s+ ($valid_name) \s+ ($valid_name) \s*
@@ -257,11 +263,19 @@ sub _concatenate {
     return $text_in_parenth;
 }
 
+my $last_name = '@';
 sub _massage {
     my $record = shift;
+    return $last_name = '@' unless $record;
     foreach (keys %$record) {
         $record->{$_} = "" unless defined $record->{$_};
         $record->{$_} = uc $record->{$_} if $_ eq 'class';
+    }
+    return $record unless defined $record->{name};
+    if (length $record->{name}) {
+        $last_name = $record->{name};
+    } else {
+        $record->{name} = $last_name;
     }
     return $record;
 }
@@ -439,7 +453,8 @@ I can squash more bugs with your help. Please let me know if you spot something
 that doesn't work as expected.
 
 You can report bugs via the CPAN RT:
-L<http://rt.cpan.org/NoAuth/Bugs.html?dist=DNS-ZoneParse>
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=DNS-ZoneParse> or send an email to
+C<bug-DNS-ZoneParse@rt.cpan.org>
 
 If possible, please provide a diff against F<t/dns-zoneparse.t> and
 F<t/test-zone.db> that demonstrates the bug(s).
