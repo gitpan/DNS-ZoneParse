@@ -1,15 +1,15 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.20
-# CVS: $Id: ZoneParse.pm,v 1.3 2001-03-12 22:07:48+00 simon Exp simon $
+# Version 0.30
+# CVS: $Id: ZoneParse.pm,v 1.4 2001-04-04 02:09:13+01 simon Exp simon $
 package DNS::ZoneParse;
 
-require 5.005_62;
+require 5.005_03;
 use strict;
 
 require Exporter;
-our @ISA = qw(Exporter);
-our $VERSION = '0.20';
+my @ISA = qw(Exporter);
+my $VERSION = '0.30';
 
 
 sub new {
@@ -41,12 +41,12 @@ sub Prepare {
 	if(ref($zonefile) eq "SCALAR")	
 	{
 		$self->{ZoneFile} = $$zonefile;
-		$self->_pre_parse();
+		$self->Parse();
 	} else { 
-		if (open(infile, "$zonefile")) {
-			while (<infile>) { $self->{ZoneFile} .= $_ }
-			close(infile);
-			$self->_pre_parse();
+		if (open(inZONE, "$zonefile")) {
+			while (<inZONE>) { $self->{ZoneFile} .= $_ }
+			close(inZONE);
+			$self->Parse();
 		} else {
 			die "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
 		}
