@@ -1,0 +1,61 @@
+=head1 NAME
+
+DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone
+Files.
+
+=head1 SYNOPSIS
+
+	use C<DNS::ZoneParse>;
+
+	my $dnsfile = C<DNS::ZoneParse>->new();
+
+	open (FH, "/path/to/dns/zonefile.db");
+	while (<FH>) { $zonefile .= $_ }
+	close (FH);
+
+	$dnsfile->Prepare(\$zonefile);
+
+	print $dnsfile->{Zone}->{SOA}->{serial};
+	$dnsfile->newSerial();
+	print $dnsfile->{Zone}->{SOA}->{serial};
+	
+	print $dnsfile->PrintZone();
+
+=head1 DESCRIPTION
+
+This module will parse a Zone File and put all the Resource Records 
+(RRs) into an anonymous hash structure. At the moment, the following 
+types of RRs are supported: SOA, NS, MX, A, CNAME, TXT, PTR. It could
+be useful for maintaining DNS zones, or for transferring DNS zones to
+other servers. If you want to generate an XML-friendly version of your
+zone files, it is easy to use XML::Simple with this module once you
+have parsed the zonefile.
+
+The Prepare method scans the DNS zonefile - removes comments and
+seperates the file into it's constituent records. It then parses each
+record and stores the objects in the $object->{Zone} hash. Using
+Data::Dumper on that object will give you a better idea of what this
+looks like than I can describe.
+
+You can access the objects in the $object->{Zone} hash to
+add\remove\modify RRs directly, and then you can call
+$object->PrintZone(), and it will return and create a new Zone File
+in the $object->{ZoneFile} string.
+
+I will update this documentation - it's pretty sparse at the moment,
+but many more features coming...
+	
+=head2 EXPORT
+
+None by default.
+
+
+=head1 AUTHOR
+
+S. Flack : perl@simonflack.com
+
+=head1 SEE ALSO
+
+DNS::ZoneFile
+
+=cut
