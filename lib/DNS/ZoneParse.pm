@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.94
-# CVS: $Id: ZoneParse.pm,v 1.4 2004/09/02 20:05:59 simonflack Exp $
+# Version 0.95
+# CVS: $Id: ZoneParse.pm,v 1.5 2004/10/24 16:55:01 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.94';
+$VERSION = '0.95';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4, %dns_last_name);
 
@@ -85,6 +85,7 @@ sub new_serial {
 sub output {
     my $self = shift;
     my @quick_classes = qw(A AAAA CNAME PTR);
+    my $zone_ttl = $dns_soa{$self}{ttl} ? "\$TTL $dns_soa{$self}{ttl}" : '';
     my $output = "";
     $output .= <<ZONEHEADER;
 ;
@@ -92,7 +93,7 @@ sub output {
 ;	Zone version: $dns_soa{$self}->{serial}
 ;
 
-\$TTL $dns_soa{$self}->{ttl}
+$zone_ttl
 $dns_soa{$self}->{origin}		$dns_soa{$self}->{ttl}	IN  SOA  $dns_soa{$self}->{primary} $dns_soa{$self}->{email} (
 				$dns_soa{$self}->{serial}	; serial number
 				$dns_soa{$self}->{refresh}	; refresh
@@ -182,7 +183,7 @@ sub _parse {
 
     my $chars = qr/[a-z\-\.0-9]+/i;
     $contents =~ /Database file ($chars)( dns)? for ($chars) zone/si;
-    $dns_id{$self} = _massage({
+    $dns_id{$self} = $self -> _massage({
         ZoneFile => $1 || $zonefile,
         Origin   => $3 || $origin,
     });

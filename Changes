@@ -1,5 +1,9 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.95 - Sun Oct 24 2004
+      - suppress $TTL directive in output() if the zone has no TTL defined
+      - fix bug #7845 - zonefile and origin lost during parse.
+
 0.94 - Thu Sep 2 2004
       - allow PTR records without an address (carries over from previous
         record). This doesn't seem to be forbidden by the standards (bug #7546)
