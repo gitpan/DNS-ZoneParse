@@ -1,6 +1,6 @@
 Changes
 Makefile.PL
 MANIFEST
-test.pl
+t/dns-zoneparse.t
 ZoneParse.pm
-README.html
+README

@@ -1,30 +1,134 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.30
+# Version 0.8
 # CVS: $Id: ZoneParse.pm,v 1.5 2001-05-21 13:00:51+01 simon Exp simon $
 package DNS::ZoneParse;
 
-require 5.005_03;
-use vars qw($VERSION @ISA);
+use vars qw($VERSION);
 use strict;
 use Carp;
 
-require Exporter;
-@ISA = qw(Exporter);
-$VERSION = '0.35';
-
+$VERSION = '0.8';
 
 sub new {
+    my $class = shift;
+    
+    croak "No filename or string specified" unless @_;
+    croak "Too many arguments" if @_ > 1;
+    
     my $self = {};
-    bless $self;
-    $self->_initialize();
+    bless $self, $class;
+    $self->load_file(@_);
     return $self;
 }
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Accessor Methods
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub DESTROY {}
+
+sub AUTOLOAD
+{
+	my $self = shift;
+	(my $method = $DNS::ZoneParse::AUTOLOAD) =~ s/.*:://;
+	
+	my @accessors = map { lc } keys ( %{$self->{_Zone}} );
+	croak "Invalid method called: $method" 
+			unless grep { $_ eq $method } @accessors, qw(origin zonefile);
+	
+	return $self->{Identity}->{ZoneFile} if $method eq "zonefile";
+	return $self->{Identity}->{Origin} if $method eq "origin";
+	
+	return $self->{_Zone}->{uc $method};
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Public OO Methods
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+sub Dump
+{
+	# returns a HOH for use with XML modules, etc
+	return $_[0]->{_Zone};
+}
+
+sub newSerial {
+	my $self = shift;
+	my $incriment = shift || 0;
+	if ($incriment > 0) { 
+		$self->{_Zone}->{SOA}->{serial} += $incriment;
+	} else {
+		my ($hour, $day,$mon,$year) = ( localtime() )[2 .. 5];
+		my $newserial = sprintf("%d%02d%02d%02d01", $year + 1900, $mon+1, $day, $hour);
+		
+		for (1..10)
+		{
+			if ($newserial > $self->{_Zone}->{SOA}->{serial})
+			{
+				$self->{_Zone}->{SOA}->{serial} = $newserial;
+				return 1;
+			} else {
+				$newserial++;
+			}
+		}
+
+		$self->{_Zone}->{SOA}->{serial}++;
+	}
+	return 1;
+}
+
+sub PrintZone {
+	my $self = shift;
+	my @quick_classes = qw(A CNAME);	
+	my $temp_zone_file = "";
+	$temp_zone_file .= <<ZONEHEADER;
+;
+;  Database file $self->{Identity}->{ZoneFile} for $self->{Identity}->{Origin} zone.
+;	Zone version: $self->{_Zone}->{SOA}->{serial}
+; 
+
+$self->{_Zone}->{SOA}->{origin}		$self->{_Zone}->{SOA}->{ttl}	IN  SOA  $self->{_Zone}->{SOA}->{primary} $self->{_Zone}->{SOA}->{email} (
+				$self->{_Zone}->{SOA}->{serial}	; serial number
+				$self->{_Zone}->{SOA}->{refresh}	; refresh
+				$self->{_Zone}->{SOA}->{retry}	; retry
+				$self->{_Zone}->{SOA}->{expire}	; expire
+				$self->{_Zone}->{SOA}->{minimumTTL}	; minimum TTL
+				)
+;
+; Zone NS Records
+;
+
+ZONEHEADER
+
+	foreach my $rr (@{$self->{_Zone}->{NS}}) {
+		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	NS	$rr->{host}\n";
+	}
+
+	$temp_zone_file .= "\n\;\n\; Zone Records\n\;\n\n";
+
+	foreach my $class (@quick_classes) {
+		foreach my $rr (@{$self->{_Zone}->{$class}}) {
+			$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	$class	$rr->{host}\n";
+		}
+	}
+
+	foreach my $rr (@{$self->{_Zone}->{MX}}) {
+		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	MX	$rr->{priority}  $rr->{host}\n";
+	}
+
+	$self->{ZoneFile}	 = $temp_zone_file;
+	return $self->{ZoneFile};
+}
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Private Methods
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 sub _initialize {
 	my $self = shift;
-	$self->{Zone} = { SOA => {},
+	$self->{_Zone} = { SOA => {},
 			  AAAA => [],
 			  A => [],
 			  NS  => [],
@@ -38,27 +142,27 @@ sub _initialize {
 }
 
 
-sub Prepare {		
+sub load_file {		
 	my ($self, $zonefile) = @_;
 	if(ref($zonefile) eq "SCALAR")	
 	{
 		$self->{ZoneFile} = $$zonefile;
-		$self->Parse();
 	} else { 
 		if (open(inZONE, "$zonefile")) {
-			while (<inZONE>) { $self->{ZoneFile} .= $_ }
+			while (<inZONE>) { $self->{ZoneFile} .= $_; }
 			close(inZONE);
-			$self->Parse();
 		} else {
 			croak "DNS::ParseZone Could not open input file: \"$zonefile\" $!\n";
 		}
 	}
-	if ($self->Parse()) { return 1; }
+	if ($self->_parse()) { return 1; }
 }
 
 
-sub Parse {
+sub _parse {
 	my $self=shift;
+    $self->_initialize();
+    
 	my $chars = qr/[a-z\-\.0-9]+/i;
 	$self->{ZoneFile} =~ /Database file ($chars)( dns)? for ($chars) zone/si;
 	$self->{Identity} = { ZoneFile => $1, Origin => $3};
@@ -75,25 +179,25 @@ sub Parse {
 		if ($RR =~ /($valid_name)?\s+($rr_ttl)?\s*?($rr_class)?\s*?($rr_types)\s+($valid_name)/i)
 		{
 			my $class = uc $4;
-			push (@{$self->{Zone}->{$class}}, {name => $1.'', class=> $3.'', host => $5.'',
+			push (@{$self->{_Zone}->{$class}}, {name => $1.'', class=> $3.'', host => $5.'',
 							   ttl => $2.''});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?mx\s(\d+)\s($valid_name)/i) 
 		{
-			push (@{$self->{Zone}->{MX}}, {name => $1.'', priority => $4.'', host => $5.'', 
+			push (@{$self->{_Zone}->{MX}}, {name => $1.'', priority => $4.'', host => $5.'', 
 							ttl => $2.'', class => $3});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?SOA\s+($valid_name)\s+($valid_name)\s*?\(?\s*?($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s+($rr_ttl)\s*\)?/i) {
-			$self->{Zone}->{SOA} = {origin => $1.'', ttl => $2.'', primary => $4.'', 
+			$self->{_Zone}->{SOA} = {origin => $1.'', ttl => $2.'', primary => $4.'', 
 						email =>$5.'', serial => $6.'', refresh=> $7.'', 
 						retry=> $8.'', expire=> $9.'', minimumTTL => $10.''};
 		}
 		elsif ($RR =~ /([\d\.]+)\s+($rr_ttl)?\s*?($rr_class)?\s*?PTR\s+($valid_name)/i) {
-			push (@{$self->{Zone}->{PTR}}, {name => $1.'', class => $2.'', ttl => $3.'', 
+			push (@{$self->{_Zone}->{PTR}}, {name => $1.'', class => $2.'', ttl => $3.'', 
 							host => $4.''});
 		}
 		elsif ($RR =~ /($valid_name)\s+($rr_ttl)?\s*?($rr_class)?\s*?TXT\s+\"([^\"]*)\"/i) {
-			push (@{$self->{Zone}->{TXT}}, {name => $1.'', ttl => $2.'', class => $3.'', 
+			push (@{$self->{_Zone}->{TXT}}, {name => $1.'', ttl => $2.'', class => $3.'', 
 							text=> $4.''});
 		}
 	}
@@ -127,63 +231,6 @@ sub _concatenate {
 	return $text_in_parenth;
 }
 
-sub newSerial {
-	my $self = shift;
-	my $incriment = shift;
-	carp "Parse RRs before incrimenting the serial number" unless $self->{Zone}->{SOA}->{serial};
-	if ($incriment > 0) { 
-		$self->{Zone}->{SOA}->{serial} += $incriment;
-	} else {
-		$self->{Zone}->{SOA}->{serial}++;
-	}
-	return 1;
-}
-
-
-sub PrintZone {
-	my $self = shift;
-	my @quick_classes = qw(A CNAME);	
-	my $temp_zone_file = "";
-	$temp_zone_file .= <<ZONEHEADER;
-;
-;  Database file $self->{Identity}->{ZoneFile} for $self->{Identity}->{Origin} zone.
-;	Zone version: $self->{Zone}->{SOA}->{serial}
-; 
-
-$self->{Zone}->{SOA}->{origin}		$self->{Zone}->{SOA}->{ttl}	IN  SOA  $self->{Zone}->{SOA}->{primary} $self->{Zone}->{SOA}->{email} (
-				$self->{Zone}->{SOA}->{serial}	; serial number
-				$self->{Zone}->{SOA}->{refresh}	; refresh
-				$self->{Zone}->{SOA}->{retry}	; retry
-				$self->{Zone}->{SOA}->{expire}	; expire
-				$self->{Zone}->{SOA}->{minimumTTL}	; minimum TTL
-
-;
-; Zone NS Records
-;
-
-ZONEHEADER
-
-	foreach my $rr (@{$self->{Zone}->{NS}}) {
-		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	NS	$rr->{host}\n";
-	}
-
-	$temp_zone_file .= "\n\;\n\; Zone Records\n\;\n\n";
-
-	foreach my $class (@quick_classes) {
-		foreach my $rr (@{$self->{Zone}->{$class}}) {
-			$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	$class	$rr->{host}\n";
-		}
-	}
-
-	foreach my $rr (@{$self->{Zone}->{MX}}) {
-		$temp_zone_file .= "$rr->{name}	$rr->{ttl}	$rr->{class}	MX	$rr->{pritority}  $rr->{host}\n";
-	}
-
-	$self->{ZoneFile}	 = $temp_zone_file;
-	return $self->{ZoneFile};
-}
-
-
 
 
 1;
@@ -197,15 +244,23 @@ DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone Files.
 
 	use DNS::ZoneParse;
 
-	my $dnsfile = DNS::ZoneParse->new();
+	my $dnsfile = DNS::ZoneParse->new("/path/to/dns/zonefile.db");
 
-	$dnsfile->Prepare("/path/to/dns/zonefile.db");
-
-	print $dnsfile->{Zone}->{SOA}->{serial};
-	$dnsfile->newSerial();
-	print $dnsfile->{Zone}->{SOA}->{serial};
+	# Get a reference to the MX records
+	my $mx = $dnsfile->mx;
 	
-	print $dnsfile->PrintZone();
+	# Change the first mailserver on the list
+	$mx->[0] = { host => 'mail.localhost.com',
+	             priority => 10,
+	             name => '@' };
+
+	# update the serial number
+	$dnsfile->newSerial();
+	
+	# write the new zone file to disk 
+	open NEWZONE, ">/path/to/dns/zonefile.db" or die "error";
+	print NEWZONE $dnsfile->PrintZone();
+	close NEWZONE;
 
 =head1 INSTALLATION
 
@@ -219,14 +274,18 @@ nmake is available at http://download.microsoft.com/download/vc15/Patch/1.52/W95
 
 =head1 DESCRIPTION
 
-This module will parse a Zone File and put all the Resource Records (RRs) into an anonymous hash structure. At the moment, the following types of RRs are supported: SOA, NS, MX, A, CNAME, TXT, PTR. It could be useful for maintaining DNS zones, or for transferring DNS zones to other servers. If you want to generate an XML-friendly version of your zone files, it is easy to use XML::Simple with this module once you have parsed the zonefile.
+This module will parse a Zone File and put all the Resource Records (RRs)
+into an anonymous hash structure. At the moment, the following types of 
+RRs are supported: SOA, NS, MX, A, CNAME, TXT, PTR. It could be useful for
+maintaining DNS zones, or for transferring DNS zones to other servers. If
+you want to generate an XML-friendly version of your zone files, it is
+easy to use XML::Simple with this module once you have parsed the zonefile.
 
-The Prepare method scans the DNS zonefile - removes comments and seperates the file into it's constituent records. It then parses each record and stores the objects in the $object->{Zone} hash. Using Data::Dumper on that object will give you a better idea of what this looks like than I can describe.
+DNS::ZoneParse scans the DNS zonefile - removes comments and seperates
+the file into it's constituent records. It then parses each record and
+stores the records internally. See below for information on the accessor
+methods.
 
-You can access the objects in the $object->{Zone} hash to add\remove\modify RRs directly, and then you can call $object->PrintZone(), and it will return and create a new Zone File in the $object->{ZoneFile} string.
-
-I will update this documentation - it's pretty sparse at the moment, but many more features coming...
-	
 
 =head2 METHODS
 
@@ -234,64 +293,85 @@ I will update this documentation - it's pretty sparse at the moment, but many mo
 
 =item new
 
-This creates the DNS::ZoneParse Object
+This creates the DNS::ZoneParse Object and loads the zonefile
 
 Example:
-    my $dnsfile = DNS::ZoneParse->new();
+    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
 
-=item Prepare
+We do some preliminary checks and then parse the supplied DNS Zone File. You
+can pass it the text content from the DNS Zone File as a reference or the
+path to a filename.
 
-C<Prepare()> will do some preliminary checks and then parse the supplied DNS Zone File. You can pass it the text content from the DNS Zone File as a reference or the path to a filename.
+=item a(), cname(), mx(), ns(), ptr()
 
-Examples:
+These methods return references to the resource records. For example:
 
-    $dnsfile->Prepare("/path/to/zonefile.db");
+    my $mx = $dnsfile->mx;
 
-or
+Returns the mx records in an array reference.
 
-    my $zonefile;
-    open (Zone, "/path/to/zonefile.db");
-    while (<Zone>) { $zonefile .= $_ }
-    close (Zone);
+A, CNAME, NS, MX and PTR records have the following properties:
+'ttl', 'class', 'host', 'name'
 
-    $dnsfile->Prepare(\$zonefile);
+MX records also have a 'priority' property.
 
-=item Parse
+=item soa()
 
-C<Parse()> is called internally by the C<Prepare()> method. You can call it independently. It takes no arguments. All that is required is that $object->{ZoneFile} (string) contains a valid DNS Zone File.
+Returns a hash reference with the following properties:
+'serial', 'origin', 'primary', 'refresh', 'retry', 'ttl', 'minimumTTL',
+'email', 'expire'
+
+=item Dump
+
+Returns a hash reference of all the resource records. This might be useful if you want
+to quickly transform the data into another format, such as XML.
 
 =item newSerial
 
-C<newSerial()> incriments the Zone serial number. You can pass a positive number to add to the current serial number or it will default to 1.
+C<newSerial()> incriments the Zone serial number. It will generate a date-based
+serial number. Or you can pass a positive number to add to the current serial
+number.
 
 Examples:
 
-    $dnsfile->newSerial();    # adds 1 to the original serial number
-    $dnsfile->newSerial(50);    # adds 50 to the original serial number
-    $dnsfile->newSerial(-50);    # adds 1 to the original serial number
+    $dnsfile->newSerial();    # generates a new serial number based on date:
+                              # YYYYMMDDHH## format, incriments current serial
+                              # by 1 if the new serial is still smaller than the current.
+    $dnsfile->newSerial(50);  # adds 50 to the original serial number
 
 =item PrintZone
 
-C<PrintZone()> loops through the Resource Records and creates a zone file in $object->{ZoneFile}. It also returns the new zonefile.
+C<PrintZone()> loops through the Resource Records and returns the new zonefile.
+
+
+=item Prepare
+
+(obsolete)
+
+=item Parse
+
+(obsolete)
 
 =back
 
 =head2 EXAMPLES
 
-This script will print the A records in a zone file, add a new A record for the name "new" and then return the zone file.
+This script will print the A records in a zone file, add a new A record for the name
+"new" and then return the zone file.
 
     use strict;
     use DNS::ZoneParse;
     
-    my $dnsfile = DNS::ZoneParse->new();
-    $dnsfile->Prepare("/path/to/zonefile.db");
+    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
     
     print "Current A Records\n";
-    foreach my $a (@{$dnsfile->{Zone}->{A}}) {
-        print "$a->{name} resolves at $a->{host}\n";
+    my $a_records = $dnsfile->a();
+    
+    foreach my $record (@$a_records) {
+		print "$record->{name} resolves at $record->{host}\n";
     }
 
-    push (@{$dnsfile->{Zone}->{A}}, { name => 'new', class => 'IN', host => '127.0.0.1', ttl => '' });
+    push (@$a_records, { name => 'new', class => 'IN', host => '127.0.0.1', ttl => '' });
 
     $dnsfile->newSerial();
     my $newfile = $dnsfile->PrintZone();
@@ -306,49 +386,44 @@ This script will convert a DNS Zonefile to an XML file using XML::Simple.
     use DNS::ZoneParse;
     use XML::Simple;
     
-    my $dnsfile = DNS::ZoneParse->new();
-    $dnsfile->Prepare("/path/to/zonefile.db");
+    my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
 
-    my $new_xml = XMLout($dnsfile->{Zone}, noattr => 1, suppressempty => 1, rootname => $dnsfile->{Zone}->{SOA}->{serial});
+    my $new_xml = XMLout($dnsfile->Dump, 
+                         noattr => 1, 
+                         suppressempty => 1, 
+                         rootname => $dnsfile->origin);
 
+=head1 CHANGES
+
+Lots, I have hidden away the internals more. Version 0.35 and below were
+way too open and would only lead to problems.
+
+I've removed the Parse() and Prepare() methods. There was no point
+in calling extra methods, if you just pass the filename\zone data to
+the new construct.
+
+=head1 TODO
+
+Rewrite the parsing methods to use Parse::RecDescent. This is necessary to make
+certain complex DNS structures parseable. I was originally going to use
+Parse::RecDescent, but I didn't :(
+
+I might make the records objects themselves, e.g. each MX record could be a
+DNS::ZoneParse::MX object with it's own methods\properties etc. How does that
+sound?
 
 =head1 EXPORT
 
 None by default. Object-oriented interface.
 
-=head1 TO DO
-
-These are things that I need to do...
-
-=over 4
-Resource Records that have multiple entries\ip addresses
-
-=item IPv6 compatability
-
-There is already space for the AAAA records, but I need to read the rest of the RFCs before I finish this part.
-
-=item More intelligent serial number generation.
-
-Possibly add the option of date-based updates to serial number
-
-=item Cleaner parsing
-
-The parsing here does work on the tested systems, but there may be cleaner ways of doing it.
-
-=item Better documentation
-
-Come on, you know this is hopeless!
-
-=back
-
-=head1 BUGS & REQUESTS
-
-Please let me know!
-
-
 =head1 AUTHOR
 
 S. Flack : perl@simonflack.com
+
+=head1 LICENSE
+
+DNS::ZoneParse is free software which you can redistribute and/or modify under
+the same terms as Perl itself.
 
 =head1 SEE ALSO
 

@@ -5,4 +5,6 @@ WriteMakefile(
     'NAME'		=> 'DNS::ZoneParse',
     'VERSION_FROM'	=> 'ZoneParse.pm', # finds $VERSION
     'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+    'ABSTRACT_FROM' => 'ZoneParse.pm',
+    'AUTHOR' => 'Simon Flack (perl@simonflack.com)',
 );

@@ -1,0 +1,171 @@
+NAME
+    DNS::ZoneParse - Perl extension for parsing and manipulating DNS Zone
+    Files.
+
+SYNOPSIS
+            use DNS::ZoneParse;
+
+            my $dnsfile = DNS::ZoneParse->new("/path/to/dns/zonefile.db");
+
+            # Get a reference to the MX records
+            my $mx = $dnsfile->mx;
+        
+            # Change the first mailserver on the list
+            $mx->[0] = { host => 'mail.localhost.com',
+                         priority => 10,
+                         name => '@' };
+
+            # update the serial number
+            $dnsfile->newSerial();
+        
+            # write the new zone file to disk 
+            open NEWZONE, ">/path/to/dns/zonefile.db" or die "error";
+            print NEWZONE $dnsfile->PrintZone();
+            close NEWZONE;
+
+INSTALLATION
+       perl Makefile.PL
+       make
+       make test
+       make install
+
+    Win32 users substitute "make" with "nmake" or equivalent. nmake is
+    available at
+    http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15
+    .exe
+
+DESCRIPTION
+    This module will parse a Zone File and put all the Resource Records
+    (RRs) into an anonymous hash structure. At the moment, the following
+    types of RRs are supported: SOA, NS, MX, A, CNAME, TXT, PTR. It could be
+    useful for maintaining DNS zones, or for transferring DNS zones to other
+    servers. If you want to generate an XML-friendly version of your zone
+    files, it is easy to use XML::Simple with this module once you have
+    parsed the zonefile.
+
+    DNS::ZoneParse scans the DNS zonefile - removes comments and seperates
+    the file into it's constituent records. It then parses each record and
+    stores the records internally. See below for information on the accessor
+    methods.
+
+  METHODS
+
+    new This creates the DNS::ZoneParse Object and loads the zonefile
+
+        Example: my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
+
+        We do some preliminary checks and then parse the supplied DNS Zone
+        File. You can pass it the text content from the DNS Zone File as a
+        reference or the path to a filename.
+
+    a(), cname(), mx(), ns(), ptr()
+        These methods return references to the resource records. For
+        example:
+
+            my $mx = $dnsfile->mx;
+
+        Returns the mx records in an array reference.
+
+        A, CNAME, NS, MX and PTR records have the following properties:
+        'ttl', 'class', 'host', 'name'
+
+        MX records also have a 'priority' property.
+
+    soa()
+        Returns a hash reference with the following properties: 'serial',
+        'origin', 'primary', 'refresh', 'retry', 'ttl', 'minimumTTL',
+        'email', 'expire'
+
+    Dump
+        Returns a hash reference of all the resource records. This might be
+        useful if you want to quickly transform the data into another
+        format, such as XML.
+
+    newSerial
+        "newSerial()" incriments the Zone serial number. It will generate a
+        date-based serial number. Or you can pass a positive number to add
+        to the current serial number.
+
+        Examples:
+
+            $dnsfile->newSerial();    # generates a new serial number based on date:
+                                      # YYYYMMDDHH## format, incriments current serial
+                                      # by 1 if the new serial is still smaller than the current.
+            $dnsfile->newSerial(50);  # adds 50 to the original serial number
+
+    PrintZone
+        "PrintZone()" loops through the Resource Records and returns the new
+        zonefile.
+
+    Prepare
+        (obsolete)
+
+    Parse
+        (obsolete)
+
+  EXAMPLES
+
+    This script will print the A records in a zone file, add a new A record
+    for the name "new" and then return the zone file.
+
+        use strict;
+        use DNS::ZoneParse;
+    
+        my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
+    
+        print "Current A Records\n";
+        my $a_records = $dnsfile->a();
+    
+        foreach my $record (@$a_records) {
+                    print "$record->{name} resolves at $record->{host}\n";
+        }
+
+        push (@$a_records, { name => 'new', class => 'IN', host => '127.0.0.1', ttl => '' });
+
+        $dnsfile->newSerial();
+        my $newfile = $dnsfile->PrintZone();
+
+    This script will convert a DNS Zonefile to an XML file using
+    XML::Simple.
+
+        use strict;
+        use DNS::ZoneParse;
+        use XML::Simple;
+    
+        my $dnsfile = DNS::ZoneParse->new("/path/to/zonefile.db");
+
+        my $new_xml = XMLout($dnsfile->Dump, 
+                             noattr => 1, 
+                             suppressempty => 1, 
+                             rootname => $dnsfile->origin);
+
+CHANGES
+    Lots, I have hidden away the internals more. Version 0.35 and below were
+    way too open and would only lead to problems.
+
+    I've removed the Parse() and Prepare() methods. There was no point in
+    calling extra methods, if you just pass the filename\zone data to the
+    new construct.
+
+TODO
+    Rewrite the parsing methods to use Parse::RecDescent. This is necessary
+    to make certain complex DNS structures parseable. I was originally going
+    to use Parse::RecDescent, but I didn't :(
+
+    I might make the records objects themselves, e.g. each MX record could
+    be a DNS::ZoneParse::MX object with it's own methods\properties etc. How
+    does that sound?
+
+EXPORT
+    None by default. Object-oriented interface.
+
+AUTHOR
+    S. Flack : perl@simonflack.com
+
+LICENSE
+    DNS::ZoneParse is free software which you can redistribute and/or modify
+    under the same terms as Perl itself.
+
+SEE ALSO
+    DNS::ZoneFile
+
