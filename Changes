@@ -1,5 +1,9 @@
 Revision history for Perl extension DNS::ZoneParse.
 
+0.94 - Thu Sep 2 2004
+      - allow PTR records without an address (carries over from previous
+        record). This doesn't seem to be forbidden by the standards (bug #7546)
+
 0.93 - Wed Sep 1 2004
       - s/it's/its/ (RT bug #7533, Debian bug #268524)
 

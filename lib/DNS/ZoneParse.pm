@@ -1,7 +1,7 @@
 # DNS::ZoneParse
 # Parse and Manipulate DNS Zonefiles
-# Version 0.92
-# CVS: $Id: ZoneParse.pm,v 1.3 2004/09/01 18:54:17 simonflack Exp $
+# Version 0.94
+# CVS: $Id: ZoneParse.pm,v 1.4 2004/09/02 20:05:59 simonflack Exp $
 package DNS::ZoneParse;
 
 use 5.005;
@@ -11,7 +11,7 @@ use vars qw($VERSION);
 use strict;
 use Carp;
 
-$VERSION = '0.93';
+$VERSION = '0.94';
 my (%dns_id, %dns_soa, %dns_ns, %dns_a, %dns_cname, %dns_mx,
     %dns_txt, %dns_ptr, %dns_a4, %dns_last_name);
 
@@ -257,7 +257,7 @@ sub _parse {
                                     retry => $8, expire => $9,
                                     minimumTTL => $10 });
         }
-        elsif (/^($valid_name) \s*
+        elsif (/^($valid_name)? \s*
                 $ttl_cls
                 PTR \s+
                 ($valid_name)
