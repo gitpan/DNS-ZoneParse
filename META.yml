@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               DNS-ZoneParse
-version:            0.99
+version:            1.00
 abstract:           Parse and manipulate DNS Zone Files.
 author:
     - Simon Flack (perl@simonflack.com)
